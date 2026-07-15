@@ -1,7 +1,7 @@
 {
-  "name": "@groundcover/sdk",
+  "name": "@groundcover/api-client",
   "version": "0.1.0",
-  "description": "groundcover TypeScript SDK",
+  "description": "groundcover TypeScript API Client",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
@@ -24,7 +24,8 @@
     "p-retry": "^7.1.1"
   },
   "engines": {
-    "node": ">=20.3.0"
+    "node": ">=20.3.0",
+    "bun": ">=1.0.0"
   },
   "license": "Apache-2.0",
   "files": [

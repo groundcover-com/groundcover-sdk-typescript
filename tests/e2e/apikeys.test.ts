@@ -70,12 +70,9 @@ describe('API Keys Lifecycle', () => {
         const listRes = await listApiKeys({ client });
         expect(listRes.error).toBeUndefined();
 
-        let apiKeys = listRes.data || [];
-        if (!Array.isArray(apiKeys)) {
-          apiKeys = (apiKeys as any).apiKeys || (apiKeys as any).items || [];
-        }
+        const apiKeys = listRes.data || [];
 
-        const found = (apiKeys as any[]).some((k) => k.id === apiKeyId);
+        const found = apiKeys.some((k) => k.id === apiKeyId);
         expect(found).toBe(true);
 
         // Delete API key
@@ -86,11 +83,8 @@ describe('API Keys Lifecycle', () => {
 
         // Verify deletion
         const listAfter = await listApiKeys({ client });
-        let apiKeysAfter = listAfter.data || [];
-        if (!Array.isArray(apiKeysAfter)) {
-          apiKeysAfter = (apiKeysAfter as any).apiKeys || (apiKeysAfter as any).items || [];
-        }
-        const foundAfter = (apiKeysAfter as any[]).some((k) => k.id === apiKeyId);
+        const apiKeysAfter = listAfter.data || [];
+        const foundAfter = apiKeysAfter.some((k) => k.id === apiKeyId);
         expect(foundAfter).toBe(false);
       } finally {
         await deleteServiceAccount({
