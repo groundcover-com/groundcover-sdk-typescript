@@ -1,0 +1,185 @@
+import { beforeAll, describe, expect, it } from 'vitest';
+import {
+  createDataIntegrationConfig,
+  deleteDataIntegrationConfig,
+  describeDataIntegration,
+  getDataIntegrationConfig,
+  getDataIntegrationConfigs,
+  initClient,
+  updateDataIntegrationConfig,
+} from '../../src/index.js';
+
+const CLOUDWATCH_CONFIG = `{
+  "version": 1,
+  "name": "test-cloudwatch",
+  "scrapeInterval": "5m",
+  "stsRegion": "us-east-1",
+  "exporters": ["prometheus"],
+  "regions": ["us-east-1"],
+  "roleArn": "arn:aws:iam::123456789012:role/test-role",
+  "awsMetrics": [
+    {
+      "namespace": "AWS/EC2",
+      "metrics": [
+        {
+          "name": "CPUUtilization",
+          "statistics": ["Average"],
+          "period": 300,
+          "length": 300,
+          "nullAsZero": false
+        }
+      ]
+    }
+  ],
+  "apiConcurrencyLimits": {
+    "listMetrics": 3,
+    "getMetricData": 5,
+    "getMetricStatistics": 5,
+    "listInventory": 10
+  },
+  "withContextTagsOnInfoMetrics": false,
+  "withInventoryDiscovery": true
+}`;
+
+const CLOUDWATCH_CONFIG_UPDATED = `{
+  "version": 1,
+  "name": "test-cloudwatch",
+  "scrapeInterval": "5m",
+  "stsRegion": "us-east-2",
+  "exporters": ["prometheus"],
+  "regions": ["us-east-2"],
+  "roleArn": "arn:aws:iam::123456789012:role/test-role",
+  "awsMetrics": [
+    {
+      "namespace": "AWS/EC2",
+      "metrics": [
+        {
+          "name": "CPUUtilization",
+          "statistics": ["Average"],
+          "period": 300,
+          "length": 300,
+          "nullAsZero": false
+        }
+      ]
+    }
+  ],
+  "apiConcurrencyLimits": {
+    "listMetrics": 1,
+    "getMetricData": 5,
+    "getMetricStatistics": 5,
+    "listInventory": 10
+  },
+  "withContextTagsOnInfoMetrics": false,
+  "withInventoryDiscovery": true
+}`;
+
+describe('Data Integrations Lifecycle', () => {
+  let client: ReturnType<typeof initClient>;
+
+  beforeAll(() => {
+    client = initClient();
+  });
+
+  it('list data integration configs', async () => {
+    const result = await getDataIntegrationConfigs({ client });
+    expect(result.error).toBeUndefined();
+    expect(result.response.status).toBe(200);
+  });
+
+  it('describe data integration type', async () => {
+    const result = await describeDataIntegration({
+      client,
+      path: { type: 'cloudwatch' },
+    });
+    expect(result.error).toBeUndefined();
+    expect(result.response.status).toBe(200);
+  });
+
+  it('cloudwatch crud', async () => {
+    const uniqueName = 'sdk-e2e-test-cloudwatch-' + Date.now();
+    let configId: string | undefined;
+
+    try {
+      // Create
+      const createRes = await createDataIntegrationConfig({
+        client,
+        path: { type: 'cloudwatch' },
+        body: {
+          config: CLOUDWATCH_CONFIG,
+          name: uniqueName,
+        },
+      });
+      expect(createRes.error).toBeUndefined();
+      expect(createRes.response.status).toBe(201);
+
+      const createData = createRes.data;
+      expect(createData?.config).toBe(CLOUDWATCH_CONFIG);
+      expect(createData?.id).toBeDefined();
+      expect(createData?.updateTimestamp).toBeDefined();
+      expect(createData?.isArchived).not.toBe(true);
+
+      configId = createData?.id;
+      const originalTimestamp = createData?.updateTimestamp;
+
+      // Get - verify config
+      const getRes = await getDataIntegrationConfig({
+        client,
+        path: { type: 'cloudwatch', id: configId! },
+      });
+      expect(getRes.error).toBeUndefined();
+      expect(getRes.response.status).toBe(200);
+      expect(getRes.data?.config).toBe(CLOUDWATCH_CONFIG);
+      expect(getRes.data?.isArchived).not.toBe(true);
+
+      // Update
+      const updateRes = await updateDataIntegrationConfig({
+        client,
+        path: { type: 'cloudwatch', id: configId! },
+        body: {
+          config: CLOUDWATCH_CONFIG_UPDATED,
+          name: uniqueName,
+        },
+      });
+      expect(updateRes.error).toBeUndefined();
+      expect(updateRes.response.status).toBe(200);
+
+      const updateData = updateRes.data;
+      expect(updateData?.config).toBe(CLOUDWATCH_CONFIG_UPDATED);
+      expect(updateData?.updateTimestamp).toBeDefined();
+      expect(updateData?.updateTimestamp).not.toBe(originalTimestamp);
+
+      // Get - verify updated config
+      const getResUpdated = await getDataIntegrationConfig({
+        client,
+        path: { type: 'cloudwatch', id: configId! },
+      });
+      expect(getResUpdated.error).toBeUndefined();
+      expect(getResUpdated.response.status).toBe(200);
+      expect(getResUpdated.data?.config).toBe(CLOUDWATCH_CONFIG_UPDATED);
+      expect(getResUpdated.data?.isArchived).not.toBe(true);
+
+      // Delete
+      await deleteDataIntegrationConfig({
+        client,
+        path: { type: 'cloudwatch', id: configId! },
+      });
+
+      // Verify deletion - should return error (404 or 400)
+      const getResDeleted = await getDataIntegrationConfig({
+        client,
+        path: { type: 'cloudwatch', id: configId! },
+      });
+      expect(getResDeleted.error).toBeDefined();
+      expect([404, 400]).toContain(getResDeleted.response.status);
+
+      configId = undefined;
+    } finally {
+      if (configId) {
+        await deleteDataIntegrationConfig({
+          client,
+          path: { type: 'cloudwatch', id: configId },
+        }).catch(() => {});
+      }
+    }
+  });
+});
