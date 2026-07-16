@@ -1,100 +1,37 @@
-# groundcover TypeScript SDK
+# @groundcover/api-client
 
-Official TypeScript SDK for the [groundcover](https://groundcover.com) API.
+The official groundcover TypeScript API Client.
+
+### Supported Runtimes
+- **Node.js** (>= 20.3.0)
+- **Bun** (>= 1.0.0)
 
 ## Installation
 
-You can install the SDK using your preferred package manager:
-
 ```bash
-# Using npm
-npm install @groundcover/sdk
+# npm
+npm install @groundcover/api-client
 
-# Using pnpm
-pnpm add @groundcover/sdk
+# yarn
+yarn add @groundcover/api-client
 
-# Using yarn
-yarn add @groundcover/sdk
+# pnpm
+pnpm add @groundcover/api-client
+
+# bun
+bun add @groundcover/api-client
 ```
 
-## Requirements
-
-- Node.js 18+ (Fetch API support required)
-- A groundcover API key and Backend ID
-
-## Quick Start
-
-Initialize the client with your credentials (or rely on environment variables), and then call the typed functions from the generated API:
+## Usage
 
 ```typescript
-import { initClient, listDashboards } from '@groundcover/sdk';
+import { initClient, getDashboards } from '@groundcover/api-client';
 
-// Initialize the SDK Client
-initClient();
+// Initialize the client
+// Uses GC_API_KEY and GC_BACKEND_ID from environment by default
+const client = initClient();
 
-// Call an endpoint using the generated API function
-async function run() {
-  const { data, error, response } = await listDashboards();
-  
-  if (error) {
-    console.error('Error fetching dashboards:', error);
-    return;
-  }
-  
-  console.log('Dashboards:', data);
-}
-
-run();
+// Call an API
+const response = await getDashboards({ client });
+console.log(response.data);
 ```
-
-## Configuration
-
-The SDK reads from environment variables by default:
-
-| Variable | Description | Required |
-|---|---|---|
-| `GC_API_KEY` | Your groundcover API key | Yes |
-| `GC_BACKEND_ID` | Your groundcover Backend ID | Yes |
-| `GC_BASE_URL` | API base URL (default: `https://api.groundcover.com`) | No |
-
-You can also pass configuration explicitly during initialization:
-
-```typescript
-import { initClient } from '@groundcover/sdk';
-
-const client = initClient({
-  apiKey: "your-api-key",
-  backendId: "your-backend-id",
-  baseUrl: "https://api.groundcover.com",
-});
-```
-
-## API Structure
-
-The SDK provides strongly-typed API functions and schemas generated directly from the groundcover OpenAPI specification using `@hey-api/openapi-ts`.
-
-All endpoints are exported as individual functions. They return an object containing `data`, `error`, and `response`.
-
-```typescript
-import { createApiKey, deleteApiKey } from '@groundcover/sdk';
-
-// Creating a resource
-const { data: newApiKey, error } = await createApiKey({
-  body: {
-    name: 'my-new-api-key',
-    description: 'Created via SDK',
-    serviceAccountId: 'your-sa-id'
-  }
-});
-
-// Deleting a resource
-await deleteApiKey({
-  path: {
-    id: newApiKey.id
-  }
-});
-```
-
-## License
-
-Apache 2.0 — see [LICENSE](LICENSE).

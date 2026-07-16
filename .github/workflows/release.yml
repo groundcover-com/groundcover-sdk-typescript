@@ -126,7 +126,7 @@ jobs:
       - name: Commit & Push SDK and Version Changes
         id: commit_changes
         run: |
-          git add package.json pnpm-lock.yaml pnpm-workspace.yaml src tests biome.json openapi-ts.config.ts tsconfig.json vitest.config.ts .gitignore
+          git add README.md package.json pnpm-lock.yaml pnpm-workspace.yaml src tests biome.json openapi-ts.config.ts tsconfig.json vitest.config.ts .gitignore
           
           if git diff --staged --quiet; then
             echo "No changes to SDK files. Skipping commit, tag, and release."
