@@ -1,5 +1,5 @@
+import * as yaml from 'js-yaml';
 import { beforeAll, describe, expect, it } from 'vitest';
-import yaml from 'js-yaml';
 import {
   createMonitor,
   deleteMonitor,

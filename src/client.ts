@@ -84,8 +84,9 @@ function getEnvVar(key: string): string | undefined {
   }
 
   // Safely check for Deno global without requiring Deno types in the TS config
+  // biome-ignore lint/suspicious/noExplicitAny: Safely checking for Deno global
   const globalDeno = (globalThis as any).Deno;
-  if (globalDeno && globalDeno.env) {
+  if (globalDeno?.env) {
     return globalDeno.env.get(key);
   }
 

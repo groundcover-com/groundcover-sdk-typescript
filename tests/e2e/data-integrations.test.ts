@@ -96,7 +96,7 @@ describe('Data Integrations Lifecycle', () => {
   });
 
   it('cloudwatch crud', async () => {
-    const uniqueName = 'sdk-e2e-test-cloudwatch-' + Date.now();
+    const uniqueName = `sdk-e2e-test-cloudwatch-${Date.now()}`;
     let configId: string | undefined;
 
     try {
