@@ -22,9 +22,6 @@
     "typescript": "^6.0.0",
     "vitest": "^2.0.0"
   },
-  "dependencies": {
-    "p-retry": "^7.1.1"
-  },
   "engines": {
     "node": ">=18.0.0",
     "bun": ">=1.0.0",
@@ -40,5 +37,8 @@
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
     }
+  },
+  "dependencies": {
+    "p-retry": "^6.2.1"
   }
 }

@@ -92,6 +92,34 @@ function getEnvVar(key: string): string | undefined {
   return undefined;
 }
 
+/**
+ * Polyfill for AbortSignal.any() to support Node 18 environments.
+ */
+function combineSignals(signal1?: AbortSignal, signal2?: AbortSignal): AbortSignal | undefined {
+  if (!signal1) return signal2;
+  if (!signal2) return signal1;
+
+  if (typeof AbortSignal.any === 'function') {
+    return AbortSignal.any([signal1, signal2]);
+  }
+
+  const controller = new AbortController();
+  const onAbort = () => {
+    controller.abort(signal1.aborted ? signal1.reason : signal2.reason);
+    signal1.removeEventListener('abort', onAbort);
+    signal2.removeEventListener('abort', onAbort);
+  };
+
+  if (signal1.aborted || signal2.aborted) {
+    onAbort();
+  } else {
+    signal1.addEventListener('abort', onAbort);
+    signal2.addEventListener('abort', onAbort);
+  }
+
+  return controller.signal;
+}
+
 export function initClient(config?: GroundcoverConfig) {
   const apiKey = config?.apiKey || getEnvVar('GC_API_KEY');
   const backendId = config?.backendId || getEnvVar('GC_BACKEND_ID');
@@ -147,9 +175,7 @@ export function initClient(config?: GroundcoverConfig) {
         try {
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(new Error('Timeout')), timeout);
-          const signal = req.signal
-            ? AbortSignal.any([req.signal, controller.signal])
-            : controller.signal;
+          const signal = combineSignals(req.signal, controller.signal);
 
           try {
             res = await activeFetch(req, { signal });

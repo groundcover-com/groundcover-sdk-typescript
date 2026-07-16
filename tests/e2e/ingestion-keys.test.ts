@@ -19,9 +19,9 @@ describe('Ingestion Keys API', () => {
 
     try {
       // Create
-      const createRes = await client.post({
-        url: '/api/rbac/ingestion-keys/create',
-        body: { name: keyName },
+      const createRes = await createIngestionKey({
+        client,
+        body: { name: keyName, type: 'sensor' },
       });
 
       // Handle the case where ingestion keys are not supported on inCloud backends
@@ -32,25 +32,35 @@ describe('Ingestion Keys API', () => {
       }
 
       expect(createRes.error).toBeUndefined();
-      expect(createRes.response.status).toBe(200);
+      expect([200, 201]).toContain(createRes.response.status); // Swagger documents 201, backend might return 200
 
       const createData = createRes.data as any;
-      keyId = createData?.id || createData?.keyId;
+      keyId = createData?.id; // Strictly assert on Swagger-documented `id` field
       expect(keyId).toBeDefined();
 
       // List
-      const listRes = await client.get({ url: '/api/rbac/ingestion-keys/list' });
-      expect(listRes.error).toBeUndefined();
-      expect(listRes.response.status).toBe(200);
+      let found = false;
+      // Retry a few times to allow for backend eventual consistency if necessary
+      for (let i = 0; i < 5; i++) {
+        const listRes = await listIngestionKeys({ client });
+        expect(listRes.error).toBeUndefined();
+        expect(listRes.response.status).toBe(200);
+
+        const keys = listRes.data || [];
+        if (keys.some((k) => k.id === keyId)) {
+          found = true;
+          break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+      expect(found).toBe(true);
     } finally {
       if (keyId) {
-        // Delete
-        await client
-          .post({
-            url: '/api/rbac/ingestion-keys/delete',
-            body: { id: keyId },
-          })
-          .catch(() => {});
+        // Delete (Swagger documents DELETE with body { name: keyName })
+        await deleteIngestionKey({
+          client,
+          body: { name: keyName },
+        }).catch(() => {});
       }
     }
   });
