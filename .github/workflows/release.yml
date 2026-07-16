@@ -79,6 +79,10 @@ jobs:
           tar -xzf groundcover-sdk-typescript.tar.gz
           rm groundcover-sdk-typescript.tar.gz
 
+          # Restore our own .gitignore and discard the one from the tarball
+          # Without this, git add below would skip the generated files
+          git checkout -- .gitignore
+
       - name: Install and Build SDK
         run: |
           pnpm install
