@@ -78,16 +78,17 @@ function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl;
 }
 
-// @ts-ignore - Deno global might not be in the default typings
-declare const Deno: { env: { get(key: string): string | undefined } } | undefined;
-
 function getEnvVar(key: string): string | undefined {
   if (typeof process !== 'undefined' && process.env) {
     return process.env[key];
   }
-  if (typeof Deno !== 'undefined' && Deno.env) {
-    return Deno.env.get(key);
+
+  // Safely check for Deno global without requiring Deno types in the TS config
+  const globalDeno = (globalThis as any).Deno;
+  if (globalDeno && globalDeno.env) {
+    return globalDeno.env.get(key);
   }
+
   return undefined;
 }
 
