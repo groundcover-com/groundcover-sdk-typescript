@@ -596,6 +596,75 @@ export type AssociatedRequestV2 = {
     start: string;
 };
 
+/**
+ * AwsCurSearchRequest is the shared request body of the aws_cur search
+ * endpoints. Exactly one of Query or Pipeline must be provided. Unlike the
+ * apm/ingestion domains there are no mandatory top-level filters — every
+ * aws_cost_reports_v1 row is a cost line item.
+ */
+export type AwsCurSearchRequest = {
+    /**
+     * End time of the request range
+     */
+    end: string;
+    /**
+     * Extra filters to apply on the cost report rows.
+     */
+    filters?: string;
+    pipeline?: SqlPipeline;
+    /**
+     * GCQL query to filter cost report rows. Either `query` or `pipeline`
+     * must be provided.
+     */
+    query?: string;
+    /**
+     * Sources to filter cost report rows.
+     */
+    sources?: Array<Condition>;
+    /**
+     * Start time of the request range
+     */
+    start: string;
+};
+
+/**
+ * AwsCurSearchTimeSeriesRequest extends the search request with time-series
+ * fields. BucketDuration is optional — cost data is hourly at best, so when
+ * omitted it defaults to 1 day instead of being required like the other
+ * search-time-series endpoints.
+ */
+export type AwsCurSearchTimeSeriesRequest = {
+    bucketDuration?: string;
+    /**
+     * End time of the request range
+     */
+    end: string;
+    /**
+     * Value used to fill empty time buckets in the response. When omitted,
+     * empty buckets are filled with null.
+     */
+    fillValue?: number;
+    /**
+     * Extra filters to apply on the cost report rows.
+     */
+    filters?: string;
+    pipeline?: SqlPipeline;
+    /**
+     * GCQL query to filter cost report rows. Either `query` or `pipeline`
+     * must be provided.
+     */
+    query?: string;
+    /**
+     * Sources to filter cost report rows.
+     */
+    sources?: Array<Condition>;
+    /**
+     * Start time of the request range
+     */
+    start: string;
+    valueField?: string;
+};
+
 export type BackendSettings = {
     cloud?: string;
     endpoints?: Array<Endpoint>;
@@ -1048,6 +1117,13 @@ export type ConnectionConfiguration = {
 };
 
 /**
+ * ConnectorCapabilities contains optional provider-owned feature metadata.
+ */
+export type ConnectorCapabilities = {
+    mcp?: ConnectorMcpCapability;
+};
+
+/**
  * ConnectorCatalogEntry is a single declarative connector-catalog entry (a
  * first-class MCP-backed preset identified by catalog id).
  */
@@ -1076,6 +1152,7 @@ export type ConnectorCredentialResponse = {
      * The authentication type
      */
     auth_type?: string;
+    capabilities?: ConnectorCapabilities;
     /**
      * Creation timestamp
      */
@@ -1177,6 +1254,44 @@ export type ConnectorEnableResponse = {
  */
 export type ConnectorListResponse = {
     [key: string]: ConnectorStatus;
+};
+
+/**
+ * ConnectorMCPCapability describes an MCP source exposed by a first-class connector.
+ */
+export type ConnectorMcpCapability = {
+    authState?: string;
+    /**
+     * Display name shown for the MCP source.
+     */
+    displayName: string;
+    icon?: string;
+    orgDiscoveryPath?: string;
+    /**
+     * Stable identifier for the connector-provided MCP server.
+     */
+    serverId: string;
+    setupGuidance?: string;
+    /**
+     * Ownership kind for the MCP source.
+     */
+    sourceKind: string;
+    userProxyPath?: string;
+};
+
+/**
+ * ConnectorManifestResponse contains a provider app manifest and creation URL.
+ */
+export type ConnectorManifestResponse = {
+    icon_url?: string;
+    /**
+     * JSON manifest for creating the provider app.
+     */
+    manifest_json: string;
+    /**
+     * URL that opens the provider app creation flow.
+     */
+    manifest_url: string;
 };
 
 /**
@@ -2769,6 +2884,30 @@ export type InstallAssetsResponse = {
     results?: Array<AssetInstallResult>;
 };
 
+/**
+ * InstallCatalogDashboardRequest is the optional body of
+ * POST /api/dashboards/catalog/{catalogId}. Every field is optional: an empty
+ * body installs the template under its authored displayName. The preset,
+ * origin fields and managed semantics are all server-side — the caller only
+ * names the catalog template (in the path) and, optionally, overrides the
+ * display name, description and team.
+ */
+export type InstallCatalogDashboardRequest = {
+    /**
+     * Optional description for the installed dashboard.
+     */
+    description?: string;
+    /**
+     * Display name for the installed dashboard. Defaults to the catalog
+     * template's displayName when omitted.
+     */
+    name?: string;
+    /**
+     * Optional team to scope the installed dashboard to.
+     */
+    team?: string;
+};
+
 export type InstallIntegrationResponse = {
     id?: string;
     type?: string;
@@ -2984,13 +3123,12 @@ export type LinearCommentCreateRequest = {
 };
 
 /**
- * LinearSecret stores non-secret Linear org connector metadata.
+ * LinearSecret stores the comm-hub Linear org connector id. All Linear
+ * functionality is keyed off the connector id; workspace metadata lives in
+ * comm-hub and is not needed here.
  */
 export type LinearData = {
     connector_id: string;
-    workspace_id: string;
-    workspace_name: string;
-    workspace_url_key?: string;
 };
 
 export type LinearDataResponse = {
@@ -2998,18 +3136,6 @@ export type LinearDataResponse = {
      * Comm-hub Linear org connector ID.
      */
     connector_id?: string;
-    /**
-     * Linear workspace ID.
-     */
-    workspace_id?: string;
-    /**
-     * Linear workspace name.
-     */
-    workspace_name?: string;
-    /**
-     * Linear workspace URL key.
-     */
-    workspace_url_key?: string;
 };
 
 /**
@@ -3082,24 +3208,6 @@ export type LinearLabel = {
 export type LinearLabelListResponse = {
     labels?: Array<LinearLabel>;
     truncated?: boolean;
-};
-
-/**
- * LinearManifestResponse contains the Linear OAuth app manifest and app creation URL.
- */
-export type LinearManifestResponse = {
-    /**
-     * Absolute icon URL embedded in the Linear OAuth app manifest.
-     */
-    icon_url: string;
-    /**
-     * JSON manifest for creating the Linear OAuth app.
-     */
-    manifest_json: string;
-    /**
-     * Linear URL that opens the OAuth app creation form prefilled with the manifest.
-     */
-    manifest_url: string;
 };
 
 /**
@@ -3760,6 +3868,28 @@ export type LogsVelocityRequestParams = {
 export type LogsVelocityResponse = {
     isEstimate?: boolean;
     velocities?: Array<LogsVelocity>;
+};
+
+/**
+ * MCPJSONRPCRequest is a JSON-RPC 2.0 request forwarded to an MCP server.
+ */
+export type McpjsonrpcRequest = {
+    /**
+     * Request identifier. Omitted for notifications.
+     */
+    id?: unknown;
+    /**
+     * JSON-RPC protocol version.
+     */
+    jsonrpc: string;
+    /**
+     * MCP method name.
+     */
+    method: string;
+    /**
+     * Method-specific parameters.
+     */
+    params?: unknown;
 };
 
 export type MsTeamsData = {
@@ -5410,7 +5540,7 @@ export type SearchValuesRequest = {
     /**
      * Type of the search values
      */
-    type: 'logs' | 'traces' | 'events' | 'issues' | 'entities' | 'apm' | 'ingestion_measurements' | 'monitors';
+    type: 'logs' | 'traces' | 'events' | 'issues' | 'entities' | 'apm' | 'ingestion_measurements' | 'monitors' | 'aws_cur';
 };
 
 export type SearchValuesRequestV2 = {
@@ -5748,12 +5878,12 @@ export type SimulationResponse = {
 };
 
 /**
- * SlackAppSecret stores non-secret Slack org connector metadata used by dispatch-center.
+ * SlackAppSecret stores the comm-hub Slack org connector id. All Slack
+ * functionality is keyed off the connector id; workspace metadata lives in
+ * comm-hub and is not needed here.
  */
 export type SlackAppData = {
     connector_id: string;
-    team_id: string;
-    team_name: string;
 };
 
 export type SlackAppDataResponse = {
@@ -5761,14 +5891,6 @@ export type SlackAppDataResponse = {
      * Comm-hub Slack org connector ID used by dispatch-center.
      */
     connector_id?: string;
-    /**
-     * Slack workspace team ID.
-     */
-    team_id?: string;
-    /**
-     * Slack workspace team name.
-     */
-    team_name?: string;
 };
 
 /**
@@ -5827,20 +5949,6 @@ export type SlackChatPostMessageResponse = {
     };
     ok?: boolean;
     ts?: string;
-};
-
-/**
- * SlackManifestResponse contains the Slack app manifest and app creation URL.
- */
-export type SlackManifestResponse = {
-    /**
-     * Raw Slack app manifest JSON.
-     */
-    manifest_json?: string;
-    /**
-     * Slack app creation URL with the manifest embedded as a query parameter.
-     */
-    manifest_url?: string;
 };
 
 export type SlackWebhookData = {
@@ -8650,6 +8758,10 @@ export type GetDashboardsData = {
          * Dashboard status filter
          */
         status?: string;
+        /**
+         * Dashboard source filter.
+         */
+        source?: 'gc-catalog' | 'terraform' | 'regular';
     };
     url: '/api/dashboards';
 };
@@ -8659,12 +8771,6 @@ export type GetDashboardsErrors = {
      * ErrorResponse defines a common error response structure.
      */
     400: {
-        message?: string;
-    };
-    /**
-     * ErrorResponse defines a common error response structure.
-     */
-    404: {
         message?: string;
     };
     /**
@@ -8797,6 +8903,12 @@ export type GetDashboardErrors = {
     /**
      * ErrorResponse defines a common error response structure.
      */
+    410: {
+        message?: string;
+    };
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
     500: {
         message?: string;
     };
@@ -8839,6 +8951,12 @@ export type UpdateDashboardErrors = {
      * ErrorResponse defines a common error response structure.
      */
     404: {
+        message?: string;
+    };
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    409: {
         message?: string;
     };
     /**
@@ -8888,6 +9006,12 @@ export type ArchiveDashboardErrors = {
      * ErrorResponse defines a common error response structure.
      */
     404: {
+        message?: string;
+    };
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    409: {
         message?: string;
     };
     /**

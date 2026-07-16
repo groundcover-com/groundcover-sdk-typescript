@@ -78,13 +78,26 @@ function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl;
 }
 
+// @ts-ignore - Deno global might not be in the default typings
+declare const Deno: { env: { get(key: string): string | undefined } } | undefined;
+
+function getEnvVar(key: string): string | undefined {
+  if (typeof process !== 'undefined' && process.env) {
+    return process.env[key];
+  }
+  if (typeof Deno !== 'undefined' && Deno.env) {
+    return Deno.env.get(key);
+  }
+  return undefined;
+}
+
 export function initClient(config?: GroundcoverConfig) {
-  const apiKey = config?.apiKey || process.env.GC_API_KEY;
-  const backendId = config?.backendId || process.env.GC_BACKEND_ID;
-  const rawBaseUrl = config?.baseUrl || process.env.GC_BASE_URL || 'https://api.groundcover.com';
+  const apiKey = config?.apiKey || getEnvVar('GC_API_KEY');
+  const backendId = config?.backendId || getEnvVar('GC_BACKEND_ID');
+  const rawBaseUrl = config?.baseUrl || getEnvVar('GC_BASE_URL') || 'https://api.groundcover.com';
   const baseUrl = normalizeBaseUrl(rawBaseUrl);
   const maxRetries = config?.maxRetries ?? 3;
-  const traceparent = config?.traceparent || process.env.GC_TRACEPARENT;
+  const traceparent = config?.traceparent || getEnvVar('GC_TRACEPARENT');
   const timeout = config?.timeout ?? 30000;
   const activeFetch = config?.fetch ?? globalThis.fetch;
   const retryStatuses = config?.retryStatuses ?? [408, 429, 500, 502, 503, 504];

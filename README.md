@@ -5,6 +5,7 @@ The official groundcover TypeScript API Client.
 ### Supported Runtimes
 - **Node.js** (>= 20.3.0)
 - **Bun** (>= 1.0.0)
+- **Deno** (>= 1.37.0)
 
 ## Installation
 
@@ -20,6 +21,9 @@ pnpm add @groundcover/api-client
 
 # bun
 bun add @groundcover/api-client
+
+# deno
+deno add npm:@groundcover/api-client
 ```
 
 ## Usage
