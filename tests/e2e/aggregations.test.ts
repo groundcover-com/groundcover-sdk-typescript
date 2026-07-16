@@ -49,8 +49,8 @@ describe('Metrics Aggregator Lifecycle', () => {
       const createData = createRes.data;
       expect(createData?.value).toBe(AGGREGATOR_CONFIG);
       expect(createData?.uuid).toBeDefined();
-      expect(createData?.createdTimestamp).toBeDefined();
-      const originalTimestamp = createData?.createdTimestamp;
+      expect(createData?.created_timestamp).toBeDefined();
+      const originalTimestamp = createData?.created_timestamp;
 
       // Get - verify value matches
       const getRes = await getMetricsAggregatorConfig({ client });
@@ -68,8 +68,8 @@ describe('Metrics Aggregator Lifecycle', () => {
 
       const updateData = updateRes.data;
       expect(updateData?.value).toBe(AGGREGATOR_CONFIG_UPDATED);
-      expect(updateData?.createdTimestamp).toBeDefined();
-      expect(updateData?.createdTimestamp).not.toBe(originalTimestamp);
+      expect(updateData?.created_timestamp).toBeDefined();
+      expect(updateData?.created_timestamp).not.toBe(originalTimestamp);
 
       // Get - verify updated value
       const getResUpdated = await getMetricsAggregatorConfig({ client });

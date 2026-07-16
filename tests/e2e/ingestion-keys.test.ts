@@ -19,13 +19,14 @@ describe('Ingestion Keys API', () => {
 
     try {
       // Create
-      const createRes = await createIngestionKey({
-        client,
-        body: { name: keyName } as any, // Cast to any in case 'type' is required by types but optional in backend
+      const createRes = await client.post({
+        url: '/api/rbac/ingestion-keys/create',
+        body: { name: keyName },
       });
 
       // Handle the case where ingestion keys are not supported on inCloud backends
-      if (createRes.error && String(createRes.error).includes('inCloud backends')) {
+      const errorMsg = (createRes.error as any)?.message || String(createRes.error);
+      if (createRes.error && errorMsg.includes('inCloud backends')) {
         console.warn('Ingestion keys not supported on inCloud backends');
         return;
       }
@@ -38,16 +39,18 @@ describe('Ingestion Keys API', () => {
       expect(keyId).toBeDefined();
 
       // List
-      const listRes = await listIngestionKeys({ client });
+      const listRes = await client.get({ url: '/api/rbac/ingestion-keys/list' });
       expect(listRes.error).toBeUndefined();
       expect(listRes.response.status).toBe(200);
     } finally {
       if (keyId) {
         // Delete
-        await deleteIngestionKey({
-          client,
-          body: { id: keyId } as any, // Cast to any because the model might expect 'name' but backend expects 'id'
-        }).catch(() => {});
+        await client
+          .post({
+            url: '/api/rbac/ingestion-keys/delete',
+            body: { id: keyId },
+          })
+          .catch(() => {});
       }
     }
   });

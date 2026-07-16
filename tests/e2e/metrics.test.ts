@@ -15,11 +15,11 @@ describe('Metrics Query', () => {
     const result = await metricsQuery({
       client,
       body: {
-        start: start.toISOString(),
-        end: now.toISOString(),
-        step: '1m',
-        queryType: 'RANGE',
-        promql: 'up',
+        Start: start.toISOString(),
+        End: now.toISOString(),
+        Step: '1m',
+        QueryType: 'range',
+        Promql: 'up',
       },
     });
 

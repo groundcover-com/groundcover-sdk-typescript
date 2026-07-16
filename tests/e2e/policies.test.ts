@@ -47,7 +47,7 @@ describe('Policies Lifecycle', () => {
       expect(found).toBe(true);
 
       // Get
-      const getRes = await getPolicy({ client, path: { uuid: policyUuid! } });
+      const getRes = await getPolicy({ client, path: { id: policyUuid! } });
       expect(getRes.error).toBeUndefined();
       expect(getRes.data?.uuid).toBe(policyUuid);
       expect(getRes.data?.name).toBe(policyName);
@@ -56,7 +56,7 @@ describe('Policies Lifecycle', () => {
       const updatedDesc = 'E2E test policy - updated';
       const updateRes = await updatePolicy({
         client,
-        path: { uuid: policyUuid! },
+        path: { id: policyUuid! },
         body: {
           name: policyName,
           description: updatedDesc,
@@ -68,7 +68,7 @@ describe('Policies Lifecycle', () => {
       expect(updateRes.error).toBeUndefined();
 
       // Verify update via Get
-      const getUpdatedRes = await getPolicy({ client, path: { uuid: policyUuid! } });
+      const getUpdatedRes = await getPolicy({ client, path: { id: policyUuid! } });
       expect(getUpdatedRes.error).toBeUndefined();
       expect(getUpdatedRes.data?.uuid).toBe(policyUuid);
       expect(getUpdatedRes.data?.name).toBe(policyName);
@@ -86,7 +86,7 @@ describe('Policies Lifecycle', () => {
       expect(applyRes.error).toBeUndefined();
 
       // Get audit trail
-      const auditRes = await getPolicyAuditTrail({ client, path: { uuid: policyUuid! } });
+      const auditRes = await getPolicyAuditTrail({ client, path: { id: policyUuid! } });
       expect(auditRes.error).toBeUndefined();
       const auditData = auditRes.data;
       if (Array.isArray(auditData)) {
@@ -96,7 +96,7 @@ describe('Policies Lifecycle', () => {
       }
     } finally {
       if (policyUuid) {
-        await deletePolicy({ client, path: { uuid: policyUuid } }).catch(() => {});
+        await deletePolicy({ client, path: { id: policyUuid } }).catch(() => {});
       }
     }
   });

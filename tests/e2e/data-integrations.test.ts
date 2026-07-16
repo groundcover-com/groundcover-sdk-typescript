@@ -115,11 +115,11 @@ describe('Data Integrations Lifecycle', () => {
       const createData = createRes.data;
       expect(createData?.config).toBe(CLOUDWATCH_CONFIG);
       expect(createData?.id).toBeDefined();
-      expect(createData?.updateTimestamp).toBeDefined();
-      expect(createData?.isArchived).not.toBe(true);
+      expect(createData?.update_timestamp).toBeDefined();
+      expect(createData?.is_archived).not.toBe(true);
 
       configId = createData?.id;
-      const originalTimestamp = createData?.updateTimestamp;
+      const originalTimestamp = createData?.update_timestamp;
 
       // Get - verify config
       const getRes = await getDataIntegrationConfig({
@@ -129,7 +129,7 @@ describe('Data Integrations Lifecycle', () => {
       expect(getRes.error).toBeUndefined();
       expect(getRes.response.status).toBe(200);
       expect(getRes.data?.config).toBe(CLOUDWATCH_CONFIG);
-      expect(getRes.data?.isArchived).not.toBe(true);
+      expect(getRes.data?.is_archived).not.toBe(true);
 
       // Update
       const updateRes = await updateDataIntegrationConfig({
@@ -145,8 +145,8 @@ describe('Data Integrations Lifecycle', () => {
 
       const updateData = updateRes.data;
       expect(updateData?.config).toBe(CLOUDWATCH_CONFIG_UPDATED);
-      expect(updateData?.updateTimestamp).toBeDefined();
-      expect(updateData?.updateTimestamp).not.toBe(originalTimestamp);
+      expect(updateData?.update_timestamp).toBeDefined();
+      expect(updateData?.update_timestamp).not.toBe(originalTimestamp);
 
       // Get - verify updated config
       const getResUpdated = await getDataIntegrationConfig({
@@ -156,7 +156,7 @@ describe('Data Integrations Lifecycle', () => {
       expect(getResUpdated.error).toBeUndefined();
       expect(getResUpdated.response.status).toBe(200);
       expect(getResUpdated.data?.config).toBe(CLOUDWATCH_CONFIG_UPDATED);
-      expect(getResUpdated.data?.isArchived).not.toBe(true);
+      expect(getResUpdated.data?.is_archived).not.toBe(true);
 
       // Delete
       await deleteDataIntegrationConfig({

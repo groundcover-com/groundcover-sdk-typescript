@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
+import yaml from 'js-yaml';
 import {
   createMonitor,
   deleteMonitor,
@@ -99,7 +100,7 @@ describe('Monitors Lifecycle', () => {
       });
       expect(getResp.error).toBeUndefined();
 
-      const monitorData = getResp.data as any;
+      const monitorData = yaml.load(getResp.data as string) as any;
       expect(monitorData.title).toBe(title);
 
       // Verify pendingFor is preserved as 0s
@@ -130,7 +131,7 @@ describe('Monitors Lifecycle', () => {
       });
       expect(getUpdatedResp.error).toBeUndefined();
 
-      const updatedData = getUpdatedResp.data as any;
+      const updatedData = yaml.load(getUpdatedResp.data as string) as any;
       expect(updatedData.severity).toBe('warning');
       expect(updatedData.title).toBe(title);
 
