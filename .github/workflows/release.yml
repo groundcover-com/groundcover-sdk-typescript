@@ -23,6 +23,11 @@ on:
         required: false
         type: boolean
         default: false
+      forcePublishNpm:
+        description: 'Publish to NPM even when SDK tarball content matches the repo (version-only release)'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   release:
@@ -42,6 +47,17 @@ jobs:
           ref: ${{ github.ref }}
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token }}
+
+      - name: Capture repo version
+        id: repo_version
+        run: |
+          if [ ! -f package.json ]; then
+            echo "Error: package.json not found in repo checkout."
+            exit 1
+          fi
+          VERSION=$(node -p "require('./package.json').version")
+          echo "Published repo version: $VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
@@ -93,10 +109,12 @@ jobs:
             exit 1
           fi
 
-          # Extract current version from package.json using node
-          OLD_VERSION_FROM_FILE=$(node -p "require('./package.json').version")
+          # Bump from the repo's published version. The monorepo tarball ships
+          # package.json at 0.0.0 as a placeholder — using it would re-bump to
+          # the same version already on main and skip NPM publish.
+          OLD_VERSION_FROM_FILE="${{ steps.repo_version.outputs.version }}"
           PREVIOUS_VERSION_INFO="$OLD_VERSION_FROM_FILE"
-          echo "Current version from package.json: $OLD_VERSION_FROM_FILE"
+          echo "Bumping from repo version: $OLD_VERSION_FROM_FILE"
 
           IFS='.' read -r -a VERSION_PARTS <<< "$OLD_VERSION_FROM_FILE"
           MAJOR=${VERSION_PARTS[0]:-0}
@@ -130,8 +148,25 @@ jobs:
           git add README.md package.json pnpm-lock.yaml pnpm-workspace.yaml src tests biome.json openapi-ts.config.ts tsconfig.json vitest.config.ts .gitignore
           
           if git diff --staged --quiet; then
-            echo "No changes to SDK files. Skipping commit, tag, and release."
-            echo "committed=false" >> $GITHUB_OUTPUT
+            if [ "${{ github.event.inputs.forcePublishNpm }}" = "true" ]; then
+              if [ "${{ steps.version_logic.outputs.new_version }}" = "${{ steps.repo_version.outputs.version }}" ]; then
+                echo "Error: forcePublishNpm requested but version is unchanged (${{ steps.version_logic.outputs.new_version }})."
+                echo "Use isPatchVersion or isMajorVersion to pick a new version."
+                exit 1
+              fi
+              echo "forcePublishNpm enabled — committing version-only release (${{ steps.repo_version.outputs.version }} -> ${{ steps.version_logic.outputs.new_version }})."
+              git add package.json
+              COMMIT_MSG="Release version ${{ steps.version_logic.outputs.new_version }} (force NPM publish, SDK source: ${{ github.event.inputs.commit_hash }})"
+              git config --global user.name 'groundcover-bot[bot]'
+              git config --global user.email 'groundcover-bot[bot]@users.noreply.github.com'
+              git commit -m "$COMMIT_MSG"
+              git push
+              echo "committed=true" >> $GITHUB_OUTPUT
+            else
+              echo "No changes to SDK files. Skipping commit, tag, and release."
+              echo "Tip: re-run with forcePublishNpm=true to publish a version-only release."
+              echo "committed=false" >> $GITHUB_OUTPUT
+            fi
           else
             echo "Changes detected. Committing and pushing..."
             COMMIT_MSG="Update SDK to version ${{ steps.version_logic.outputs.new_version }} (SDK source: ${{ github.event.inputs.commit_hash }})"
@@ -172,4 +207,5 @@ jobs:
             Automated release for version ${{ steps.version_logic.outputs.new_version }}.
             SDK source commit: ${{ github.event.inputs.commit_hash }}
             Previous version: ${{ steps.version_logic.outputs.current_version }}
+            Force NPM publish: ${{ github.event.inputs.forcePublishNpm }}
           draft: false
