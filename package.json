@@ -1,0 +1,44 @@
+{
+  "name": "@groundcover/api-client",
+  "version": "0.1.0",
+  "description": "groundcover TypeScript API Client",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run tests/unit",
+    "test:unit": "vitest run tests/unit",
+    "test:e2e": "vitest run tests/e2e",
+    "lint": "biome check .",
+    "format": "biome format --write ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.8.0",
+    "@hey-api/openapi-ts": "0.99.0",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^20.0.0",
+    "js-yaml": "^5.2.1",
+    "typescript": "^6.0.0",
+    "vitest": "^2.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "bun": ">=1.0.0",
+    "deno": ">=1.37.0"
+  },
+  "license": "Apache-2.0",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "dependencies": {
+    "p-retry": "^6.2.1"
+  }
+}
