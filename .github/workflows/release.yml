@@ -23,6 +23,11 @@ on:
         required: false
         type: boolean
         default: false
+      forcePublishNpm:
+        description: 'Publish to NPM even when SDK tarball content matches the repo (version-only release)'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   release:
@@ -43,6 +48,22 @@ jobs:
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token }}
 
+      - name: Capture repo version
+        id: repo_version
+        run: |
+          set -euo pipefail
+          if [ ! -f package.json ]; then
+            echo "Error: package.json not found in repo checkout."
+            exit 1
+          fi
+          VERSION="$(node -p "require('./package.json').version")"
+          if ! [[ "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "Error: package.json must contain a numeric MAJOR.MINOR.PATCH version."
+            exit 1
+          fi
+          echo "Published repo version: $VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
@@ -57,9 +78,11 @@ jobs:
       - name: Download and Extract SDK
         env:
           COMMIT_HASH: ${{ github.event.inputs.commit_hash }}
+          IS_MAJOR_VERSION: ${{ github.event.inputs.isMajorVersion }}
+          IS_PATCH_VERSION: ${{ github.event.inputs.isPatchVersion }}
         run: |
-          # Guardrail for input combinations
-          if [ "${{ github.event.inputs.isMajorVersion }}" = "true" ] && [ "${{ github.event.inputs.isPatchVersion }}" = "true" ]; then
+          set -euo pipefail
+          if [ "$IS_MAJOR_VERSION" = "true" ] && [ "$IS_PATCH_VERSION" = "true" ]; then
             echo "Error: Cannot set both isMajorVersion and isPatchVersion to true. Please choose only one type of bump or neither (for minor bump)."
             exit 1
           fi
@@ -82,33 +105,56 @@ jobs:
 
       - name: Install and Build SDK
         run: |
+          set -euo pipefail
           pnpm install
           pnpm run build
 
+      - name: Detect SDK content changes
+        id: sdk_changes
+        run: |
+          set -euo pipefail
+          # Stage SDK files but exclude package.json — the tarball ships a monorepo
+          # placeholder version that would otherwise always look like a change.
+          git add README.md pnpm-lock.yaml pnpm-workspace.yaml src tests biome.json openapi-ts.config.ts tsconfig.json vitest.config.ts .gitignore
+          if git diff --staged --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No SDK content changes detected."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "SDK content changes detected."
+          fi
+          git reset
+
       - name: Prepare and Bump Version File
         id: version_logic
+        env:
+          REPO_VERSION: ${{ steps.repo_version.outputs.version }}
+          IS_MAJOR_VERSION: ${{ github.event.inputs.isMajorVersion }}
+          IS_PATCH_VERSION: ${{ github.event.inputs.isPatchVersion }}
         run: |
+          set -euo pipefail
           if [ ! -f package.json ]; then
             echo "Error: package.json not found after download."
             exit 1
           fi
 
-          # Extract current version from package.json using node
-          OLD_VERSION_FROM_FILE=$(node -p "require('./package.json').version")
-          PREVIOUS_VERSION_INFO="$OLD_VERSION_FROM_FILE"
-          echo "Current version from package.json: $OLD_VERSION_FROM_FILE"
+          # Bump from the repo's published version. The monorepo tarball ships
+          # package.json at 0.0.0 as a placeholder — using it would re-bump to
+          # the same version already on main and skip NPM publish.
+          OLD_VERSION_FROM_FILE="$REPO_VERSION"
+          echo "Bumping from repo version: $OLD_VERSION_FROM_FILE"
 
           IFS='.' read -r -a VERSION_PARTS <<< "$OLD_VERSION_FROM_FILE"
           MAJOR=${VERSION_PARTS[0]:-0}
           MINOR=${VERSION_PARTS[1]:-0}
           PATCH=${VERSION_PARTS[2]:-0}
 
-          if [ "${{ github.event.inputs.isMajorVersion }}" = "true" ]; then
+          if [ "$IS_MAJOR_VERSION" = "true" ]; then
             echo "Bumping major version..."
             MAJOR=$((MAJOR + 1))
             MINOR=0
             PATCH=0
-          elif [ "${{ github.event.inputs.isPatchVersion }}" = "true" ]; then
+          elif [ "$IS_PATCH_VERSION" = "true" ]; then
             echo "Bumping patch version..."
             PATCH=$((PATCH + 1))
           else
@@ -116,43 +162,63 @@ jobs:
             MINOR=$((MINOR + 1))
             PATCH=0
           fi
-          
-          NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
-          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
-          echo "current_version=$PREVIOUS_VERSION_INFO" >> $GITHUB_OUTPUT
 
-          # Update version in package.json
-          npm pkg set version="$NEW_VERSION"
+          NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "current_version=$OLD_VERSION_FROM_FILE" >> "$GITHUB_OUTPUT"
+
+          npm pkg set "version=$NEW_VERSION"
 
       - name: Commit & Push SDK and Version Changes
         id: commit_changes
-        run: |
-          git add README.md package.json pnpm-lock.yaml pnpm-workspace.yaml src tests biome.json openapi-ts.config.ts tsconfig.json vitest.config.ts .gitignore
-          
-          if git diff --staged --quiet; then
-            echo "No changes to SDK files. Skipping commit, tag, and release."
-            echo "committed=false" >> $GITHUB_OUTPUT
-          else
-            echo "Changes detected. Committing and pushing..."
-            COMMIT_MSG="Update SDK to version ${{ steps.version_logic.outputs.new_version }} (SDK source: ${{ github.event.inputs.commit_hash }})"
-            git config --global user.name 'groundcover-bot[bot]'
-            git config --global user.email 'groundcover-bot[bot]@users.noreply.github.com'
-            git commit -m "$COMMIT_MSG"
-            git push
-            echo "committed=true" >> $GITHUB_OUTPUT
-          fi
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          COMMIT_HASH: ${{ github.event.inputs.commit_hash }}
+          FORCE_PUBLISH: ${{ github.event.inputs.forcePublishNpm }}
+          SDK_CHANGED: ${{ steps.sdk_changes.outputs.changed }}
+          NEW_VERSION: ${{ steps.version_logic.outputs.new_version }}
+          REPO_VERSION: ${{ steps.repo_version.outputs.version }}
+        run: |
+          set -euo pipefail
+          git config --global user.name 'groundcover-bot[bot]'
+          git config --global user.email 'groundcover-bot[bot]@users.noreply.github.com'
+
+          if [ "$SDK_CHANGED" = "true" ]; then
+            echo "SDK content changed — committing SDK and version bump."
+            git add README.md package.json pnpm-lock.yaml pnpm-workspace.yaml src tests biome.json openapi-ts.config.ts tsconfig.json vitest.config.ts .gitignore
+            COMMIT_MSG="Update SDK to version ${NEW_VERSION} (SDK source: ${COMMIT_HASH})"
+            git commit -m "$COMMIT_MSG"
+            git push
+            echo "committed=true" >> "$GITHUB_OUTPUT"
+          elif [ "$FORCE_PUBLISH" = "true" ]; then
+            if [ "$NEW_VERSION" = "$REPO_VERSION" ]; then
+              echo "Error: forcePublishNpm requested but version is unchanged (${NEW_VERSION})."
+              echo "Use isPatchVersion or isMajorVersion to pick a new version."
+              exit 1
+            fi
+            echo "forcePublishNpm enabled — committing version-only release (${REPO_VERSION} -> ${NEW_VERSION})."
+            git add package.json pnpm-lock.yaml
+            COMMIT_MSG="Release version ${NEW_VERSION} (force NPM publish, SDK source: ${COMMIT_HASH})"
+            git commit -m "$COMMIT_MSG"
+            git push
+            echo "committed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No SDK content changes. Skipping commit, tag, and release."
+            echo "Tip: re-run with forcePublishNpm=true to publish a version-only release."
+            echo "committed=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Create and Push Tag
         if: steps.commit_changes.outputs.committed == 'true'
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          NEW_VERSION: ${{ steps.version_logic.outputs.new_version }}
         run: |
-          NEW_VERSION_TAG="v${{ steps.version_logic.outputs.new_version }}"
+          set -euo pipefail
+          NEW_VERSION_TAG="v${NEW_VERSION}"
           echo "Creating and pushing tag: $NEW_VERSION_TAG"
           git tag "$NEW_VERSION_TAG"
           git push origin "$NEW_VERSION_TAG"
-        env:
-          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
 
       - name: Publish to NPM
         if: steps.commit_changes.outputs.committed == 'true'
@@ -172,4 +238,5 @@ jobs:
             Automated release for version ${{ steps.version_logic.outputs.new_version }}.
             SDK source commit: ${{ github.event.inputs.commit_hash }}
             Previous version: ${{ steps.version_logic.outputs.current_version }}
+            Force NPM publish: ${{ github.event.inputs.forcePublishNpm }}
           draft: false
