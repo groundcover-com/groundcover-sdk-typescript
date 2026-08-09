@@ -57,6 +57,10 @@ export type AgentCustomInstructionsRequest = {
  */
 export type AgentLlmProviderConfig = {
     /**
+     * Provider-compatible endpoint base URL, if configured.
+     */
+    baseUrl?: string;
+    /**
      * Whether an API key secret ref is configured.
      */
     isSecretRefSet?: boolean;
@@ -84,7 +88,12 @@ export type AgentLlmProviderConfig = {
  */
 export type AgentLlmProviderConfigRequest = {
     /**
-     * The LLM provider to use (anthropic, azure, vertex, bedrock).
+     * Provider-compatible endpoint base URL. Conditionally required when provider is
+     * anthropic_compatible_endpoint; enforced by agent-service validation.
+     */
+    baseUrl?: string;
+    /**
+     * The LLM provider to use (anthropic, anthropic_compatible_endpoint, azure, vertex, bedrock).
      */
     provider: string;
     /**
@@ -99,17 +108,39 @@ export type AgentLlmProviderConfigRequest = {
  */
 export type AgentSkillDetail = {
     created_at: string;
-    created_by?: string;
-    description?: string;
+    /**
+     * Audit identity that created the Skill.
+     * Nullable: true
+     */
+    created_by?: string | null;
+    /**
+     * Optional human-readable Skill description.
+     * Nullable: true
+     */
+    description?: string | null;
     id: string;
-    identifier?: string;
+    /**
+     * Optional stable Skill identifier.
+     * Nullable: true
+     */
+    identifier?: string | null;
     instructions: string;
     is_organizational: boolean;
     is_provisioned: boolean;
     name: string;
+    /**
+     * Owner email used for user-facing attribution when available.
+     * Nullable: true
+     */
+    owner_email?: string | null;
+    owner_user_id: string;
     revision: number;
     updated_at: string;
-    updated_by?: string;
+    /**
+     * Audit identity that most recently updated the Skill.
+     * Nullable: true
+     */
+    updated_by?: string | null;
     when_to_use: string;
 };
 
@@ -117,7 +148,7 @@ export type AgentSkillDetail = {
  * AgentSkillRequest is forwarded to agent-service for Skill creation and updates.
  */
 export type AgentSkillRequest = {
-    description?: string;
+    description?: string | null;
     instructions: string;
     /**
      * Whether the Skill is available to the whole organization. Defaults to false. Admin only.
@@ -133,9 +164,17 @@ export type AgentSkillRequest = {
  */
 export type AgentSkillSummary = {
     created_at: string;
-    description?: string;
+    /**
+     * Optional human-readable Skill description.
+     * Nullable: true
+     */
+    description?: string | null;
     id: string;
-    identifier?: string;
+    /**
+     * Optional stable Skill identifier.
+     * Nullable: true
+     */
+    identifier?: string | null;
     is_organizational: boolean;
     is_provisioned: boolean;
     name: string;
@@ -334,7 +373,19 @@ export type AssetFetchResult = {
      */
     requiredPermissions?: Array<string>;
     /**
-     * The number of assets skipped during fetch (e.g., malformed data).
+     * SkipReason explains why the asset type was skipped (status and message).
+     */
+    skipReason?: string;
+    /**
+     * Skipped is true when the entire asset type was skipped because its list
+     * endpoint reported the type as absent (404). The run still succeeds. A
+     * missing scope (403) is reported as a failure with RequiredPermissions
+     * instead, not as a skip.
+     */
+    skipped?: boolean;
+    /**
+     * The number of individual assets skipped during fetch (e.g., a private
+     * dashboard the Application Key cannot read).
      */
     skippedAssets?: number;
     /**
@@ -684,6 +735,11 @@ export type BaseQuery = {
     dataType?: string;
     datasourceID?: string;
     datasourceType?: string;
+    /**
+     * Shifts the evaluated window back by this many seconds, for sources that backfill
+     * recent data. Up to 7 days. aws_cur queries must set exactly 172800 (48h): CUR
+     * lands 24-48h after the usage it bills, so a fresher window reads no rows.
+     */
     evaluationDelay?: number;
     expression?: string;
     filters?: string;
@@ -721,10 +777,27 @@ export type BucketDurationSeconds = number;
  */
 export type CatalogInstallRequest = {
     /**
+     * Pre-registered OAuth client id. Required for entries whose auth_mode is
+     * `oauth_static` (servers without dynamic client registration); not accepted
+     * for `oauth` entries. For `token_or_oauth` entries it is optional: supply it
+     * to install in OAuth mode, omit it to install in token mode.
+     */
+    client_id?: string;
+    /**
+     * Pre-registered OAuth client secret; requires client_id. Omit for public
+     * clients (PKCE only).
+     */
+    client_secret?: string;
+    /**
      * Optional distinct name for an additional named instance; when omitted the
      * catalog entry's display name is used.
      */
     name?: string;
+    /**
+     * Overrides the configured DCR software statement (RFC 7591 §2.3) for this
+     * install. Valid only for `oauth` entries.
+     */
+    software_statement?: string;
 };
 
 /**
@@ -831,6 +904,152 @@ export type CheckoutSessionRequest = {
 export type CheckoutSessionResponse = {
     checkoutSessionId?: string;
     url?: string;
+};
+
+/**
+ * ClaudeCreateSessionRequest is the facade request body for creating a Claude
+ * Managed Agents session. The caller supplies only title/prompt; the router
+ * forwards it to comm-hub, which resolves the stored credential server-side.
+ */
+export type ClaudeCreateSessionRequest = {
+    /**
+     * The initial prompt sent to the agent.
+     */
+    prompt: string;
+    /**
+     * Optional session title.
+     */
+    title?: string;
+};
+
+/**
+ * ClaudeCreateSessionResponse is the response after creating a Claude Managed
+ * Agents session. It never echoes back the api_key or GitHub token used to
+ * build the upstream request.
+ */
+export type ClaudeCreateSessionResponse = {
+    session_id?: string;
+    status?: string;
+};
+
+/**
+ * ClaudeEventContent is a single content block within a session event
+ * (currently text only).
+ */
+export type ClaudeEventContent = {
+    text?: string;
+    type?: string;
+};
+
+/**
+ * ClaudeGetAgentResponse is the response for the Get Agent endpoint.
+ */
+export type ClaudeGetAgentResponse = {
+    id?: string;
+    name?: string;
+};
+
+/**
+ * ClaudeGetEnvironmentResponse is the response for the Get Environment endpoint.
+ */
+export type ClaudeGetEnvironmentResponse = {
+    id?: string;
+    name?: string;
+};
+
+/**
+ * ClaudeGetSessionResponse is the response when fetching a Claude Managed
+ * Agents session.
+ */
+export type ClaudeGetSessionResponse = {
+    id?: string;
+    status?: string;
+};
+
+/**
+ * ClaudeInboundEvent is a single event returned when listing session events,
+ *
+ * e.g. agent.message, session.status_idle, session.error, or an agent tool-use
+ * that paused the session awaiting a user.tool_confirmation. ID, Name, Input,
+ * and EvaluatedPermission are populated on tool-use events so the caller can
+ * render the pending tool call and echo the event ID back as tool_use_id.
+ */
+export type ClaudeInboundEvent = {
+    content?: Array<ClaudeEventContent>;
+    /**
+     * Evaluated permission policy for the tool call (tool-use events only)
+     */
+    evaluated_permission?: string;
+    /**
+     * Event ID; on a tool-use event echo this back as tool_use_id in a
+     * user.tool_confirmation.
+     */
+    id?: string;
+    /**
+     * Tool call input arguments (tool-use events only)
+     */
+    input?: {
+        [key: string]: unknown;
+    };
+    /**
+     * Tool name (tool-use events only)
+     */
+    name?: string;
+    stop_reason?: ClaudeStopReason;
+    type?: string;
+};
+
+/**
+ * ClaudeListEventsResponse is the paginated response when listing session events.
+ */
+export type ClaudeListEventsResponse = {
+    events?: Array<ClaudeInboundEvent>;
+    next_page?: string;
+};
+
+/**
+ * ClaudeSendEventRequest is the request body for sending a session event.
+ *
+ * Type must be user.message, user.interrupt, or user.tool_confirmation, else
+ * the request is rejected with 400. Text carries a user.message; ToolUseID,
+ * Result, and Message carry a user.tool_confirmation (Message is the optional
+ * deny reason, forwarded upstream as deny_message).
+ */
+export type ClaudeSendEventRequest = {
+    /**
+     * Optional reason for a deny, delivered to the agent (user.tool_confirmation only)
+     */
+    message?: string;
+    /**
+     * Approve or deny the paused tool call (user.tool_confirmation only)
+     */
+    result?: 'allow' | 'deny';
+    text?: string;
+    /**
+     * ID of the paused tool call to respond to (user.tool_confirmation only)
+     */
+    tool_use_id?: string;
+    type: 'user.message' | 'user.interrupt' | 'user.tool_confirmation';
+};
+
+/**
+ * ClaudeSendEventResponse is the response after sending a session event.
+ */
+export type ClaudeSendEventResponse = {
+    type?: string;
+};
+
+/**
+ * ClaudeStopReason describes why a session went idle, carried on
+ * session.status_idle events.
+ */
+export type ClaudeStopReason = {
+    /**
+     * Event IDs that triggered the stop; for a requires_action pause these
+     * identify the agent tool-use event(s) awaiting a user.tool_confirmation.
+     */
+    event_ids?: Array<string>;
+    type?: string;
 };
 
 export type ClustersListRequest = {
@@ -1128,6 +1347,13 @@ export type ConnectorCapabilities = {
  * first-class MCP-backed preset identified by catalog id).
  */
 export type ConnectorCatalogEntry = {
+    /**
+     * AuthMode is the install-time auth flow: `none`, `token`, `oauth`
+     * (dynamic client registration), `oauth_static` (admin supplies a
+     * pre-registered client; the server has no registration endpoint) or
+     * `token_or_oauth` (admin selects per-user token, or OAuth by supplying a
+     * pre-registered client; changeable after install).
+     */
     auth_mode?: string;
     description?: string;
     display_name?: string;
@@ -1267,6 +1493,11 @@ export type ConnectorMcpCapability = {
     displayName: string;
     icon?: string;
     orgDiscoveryPath?: string;
+    /**
+     * Whether the connected credential holds all grantable user scopes ("full")
+     * or a re-consent could grant more ("partial"). Empty when not applicable.
+     */
+    scopeStatus?: string;
     /**
      * Stable identifier for the connector-provided MCP server.
      */
@@ -1552,6 +1783,10 @@ export type CreateDashboardRequest = {
     isProvisioned?: boolean;
     name?: string;
     preset?: string;
+    /**
+     * Tags to attach to the dashboard (array of free-text strings; whitespace-trimmed, original casing preserved)
+     */
+    tags?: Array<string>;
     team?: string;
 };
 
@@ -1626,9 +1861,14 @@ export type CreateMonitorRequest = {
      */
     executionErrorState?: 'OK' | 'Error' | 'Alerting';
     /**
-     * Whether the monitor is paused.
+     * Whether Slack notifications should omit the issue graph preview.
      */
-    isPaused?: boolean;
+    hideSlackPreviewGraph?: boolean;
+    /**
+     * Whether the monitor is paused.
+     * Nullable: true
+     */
+    isPaused?: boolean | null;
     /**
      * Labels to attach to the monitor/alert.
      */
@@ -1819,6 +2059,7 @@ export type CreateViewRequest = {
     description?: string;
     name?: string;
     preset?: string;
+    tags?: Array<string>;
     team?: string;
     viewType?: string;
 };
@@ -2079,6 +2320,17 @@ export type CustomRule = {
     retention: string;
 };
 
+/**
+ * DashboardFiltersRequest is the POST /api/dashboards/filters request body.
+ */
+export type DashboardFiltersRequest = {
+    /**
+     * Optional dashboard source filter applied to the faceted set. One of
+     * gc-catalog, terraform, regular; empty/omitted means no source filter.
+     */
+    source?: string;
+};
+
 export type DashboardListRequest = {
     /**
      * Case-insensitive substring filter on dashboard description. Empty = no description filter.
@@ -2118,6 +2370,7 @@ export type DashboardSummary = {
     name?: string;
     originId?: string;
     originType?: string;
+    tags?: Array<string>;
     uuid?: string;
 };
 
@@ -2354,7 +2607,7 @@ export type EnvType = string;
  * (message + machine-readable code + trace_id, plus optional metadata).
  */
 export type ErrorResponse = {
-    code?: 'EXCEEDED_MAX_ROWS_TO_GROUP_BY' | 'MONITOR_EVAL_FAILED' | 'MONITOR_VALIDATION_FAILED' | 'MONITOR_DUPLICATE_TITLE' | 'CONNECTED_APP_IN_USE';
+    code?: 'EXCEEDED_MAX_ROWS_TO_GROUP_BY' | 'MONITOR_EVAL_FAILED' | 'MONITOR_VALIDATION_FAILED' | 'MONITOR_DUPLICATE_TITLE' | 'CONNECTED_APP_IN_USE' | 'VIEW_REVISION_CONFLICT' | 'CONNECTED_APP_ORPHANED_SECRET';
     details?: unknown;
     docs_url?: string;
     message?: string;
@@ -2497,6 +2750,112 @@ export type ExecutionPolicy = {
         count?: number;
         interval?: string;
     };
+};
+
+/**
+ * ExportAuthBody represents the auth mode sent to export-service.
+ */
+export type ExportAuth = {
+    /**
+     * Auth type.
+     */
+    type: 'user' | 'system';
+};
+
+/**
+ * ExportCaptureBody represents export capture options.
+ */
+export type ExportCapture = {
+    /**
+     * Whether to capture the full page instead of the resolved element bounds.
+     */
+    fullscreen?: boolean;
+};
+
+/**
+ * ExportRequestBody represents the request body proxied to export-service.
+ */
+export type ExportRequest = {
+    auth: ExportAuth;
+    capture?: ExportCapture;
+    /**
+     * Export output format.
+     */
+    format: 'pdf' | 'png';
+    target: ExportTarget;
+    timeRange?: ExportTimeRange;
+};
+
+/**
+ * ExportServiceDrainingResponseBody is the structured error payload returned
+ * when export-service is draining during shutdown.
+ */
+export type ExportServiceDrainingResponseBody = {
+    /**
+     * Stable machine-readable error code.
+     */
+    error: 'EXPORT_SERVICE_DRAINING';
+    /**
+     * Human-readable explanation of the error.
+     */
+    message: string;
+    /**
+     * Export request identifier for log correlation.
+     */
+    requestId?: string;
+};
+
+/**
+ * ExportTargetBody represents a dashboard, widget, or issue graph export target.
+ */
+export type ExportTarget = {
+    /**
+     * Dashboard ID for dashboard and widget targets.
+     * Format: uuid
+     */
+    dashboardId?: string;
+    /**
+     * Issue graph height in pixels.
+     */
+    height?: number;
+    /**
+     * Issue ID for issue graph targets.
+     */
+    issueId?: string;
+    /**
+     * Issue graph rendering mode.
+     */
+    mode?: 'default' | 'workload';
+    /**
+     * Target type.
+     */
+    type: 'dashboard' | 'widget' | 'issueGraph';
+    /**
+     * Widget ID for widget targets.
+     */
+    widgetId?: string;
+    /**
+     * Issue graph width in pixels.
+     */
+    width?: number;
+};
+
+/**
+ * ExportTimeRangeBody represents the export time range.
+ */
+export type ExportTimeRange = {
+    /**
+     * End time, as epoch milliseconds or an ISO timestamp.
+     */
+    end?: unknown;
+    /**
+     * Start time, as epoch milliseconds or an ISO timestamp.
+     */
+    start?: unknown;
+    /**
+     * Timezone to use while rendering.
+     */
+    timezone?: string;
 };
 
 export type FetchAssetsRequest = {
@@ -2689,6 +3048,30 @@ export type GetEventsOverTimeResponse = {
     events?: Array<EventsOverTimeResponse>;
     isLimitReached?: boolean;
     warningIndicator?: boolean;
+};
+
+/**
+ * GetTagsRequest is the /api/tags request body: optional prefix and limit.
+ */
+export type GetTagsRequest = {
+    /**
+     * Maximum number of tags to return (default 50).
+     */
+    limit?: number;
+    /**
+     * Prefix to filter tags by (case-insensitive). Empty returns all tags.
+     */
+    text?: string;
+};
+
+/**
+ * GetTagsResponse is the /api/tags payload: existing tag names.
+ */
+export type GetTagsResponse = {
+    /**
+     * Tags ordered alphabetically (case-insensitive).
+     */
+    tags?: Array<string>;
 };
 
 export type Group = {
@@ -2894,7 +3277,8 @@ export type InstallAssetsResponse = {
  */
 export type InstallCatalogDashboardRequest = {
     /**
-     * Optional description for the installed dashboard.
+     * Description for the installed dashboard. Defaults to the catalog
+     * template's description when omitted or empty.
      */
     description?: string;
     /**
@@ -3123,12 +3507,14 @@ export type LinearCommentCreateRequest = {
 };
 
 /**
- * LinearSecret stores the comm-hub Linear org connector id. All Linear
- * functionality is keyed off the connector id; workspace metadata lives in
- * comm-hub and is not needed here.
+ * LinearSecret stores the comm-hub Linear org connector id, which all Linear
+ * functionality keys off of. WorkspaceID/WorkspaceName are optional legacy metadata
+ * written only for older backends; Validate ignores them.
  */
 export type LinearData = {
     connector_id: string;
+    workspace_id?: string;
+    workspace_name?: string;
 };
 
 export type LinearDataResponse = {
@@ -4009,6 +4395,7 @@ export type MemberView = {
     preset?: string;
     revisionNumber?: number;
     status?: string;
+    tags?: Array<string>;
     team?: string;
     tenantUuid?: string;
     updatedBy?: string;
@@ -5431,9 +5818,14 @@ export type SearchRequest = {
      */
     executionErrorState?: 'OK' | 'Error' | 'Alerting';
     /**
-     * Whether the monitor is paused.
+     * Whether Slack notifications should omit the issue graph preview.
      */
-    isPaused?: boolean;
+    hideSlackPreviewGraph?: boolean;
+    /**
+     * Whether the monitor is paused.
+     * Nullable: true
+     */
+    isPaused?: boolean | null;
     /**
      * Labels to attach to the monitor/alert.
      */
@@ -5540,7 +5932,7 @@ export type SearchValuesRequest = {
     /**
      * Type of the search values
      */
-    type: 'logs' | 'traces' | 'events' | 'issues' | 'entities' | 'apm' | 'ingestion_measurements' | 'monitors' | 'aws_cur';
+    type: 'logs' | 'traces' | 'events' | 'issues' | 'entities' | 'apm' | 'ingestion_measurements' | 'monitors' | 'aws_cur' | 'dashboards';
 };
 
 export type SearchValuesRequestV2 = {
@@ -5878,12 +6270,14 @@ export type SimulationResponse = {
 };
 
 /**
- * SlackAppSecret stores the comm-hub Slack org connector id. All Slack
- * functionality is keyed off the connector id; workspace metadata lives in
- * comm-hub and is not needed here.
+ * SlackAppSecret stores the comm-hub Slack org connector id, which all Slack
+ * functionality keys off of. TeamID/TeamName are optional legacy metadata written
+ * only for older backends; Validate ignores them.
  */
 export type SlackAppData = {
     connector_id: string;
+    team_id?: string;
+    team_name?: string;
 };
 
 export type SlackAppDataResponse = {
@@ -6316,6 +6710,12 @@ export type TestConnectedAppResponse = {
      * Whether the test notification was sent successfully
      */
     success?: boolean;
+};
+
+export type TestConnectionResponse = {
+    message?: string;
+    status?: string;
+    statusCode?: number;
 };
 
 /**
@@ -7115,6 +7515,10 @@ export type UpdateDashboardRequest = {
     name?: string;
     override?: boolean;
     preset?: string;
+    /**
+     * Tags to attach to the dashboard (array of free-text strings; whitespace-trimmed, original casing preserved)
+     */
+    tags?: Array<string>;
     team?: string;
 };
 
@@ -7184,9 +7588,14 @@ export type UpdateMonitorRequest = {
      */
     executionErrorState?: 'OK' | 'Error' | 'Alerting';
     /**
-     * Whether the monitor is paused.
+     * Whether Slack notifications should omit the issue graph preview.
      */
-    isPaused?: boolean;
+    hideSlackPreviewGraph?: boolean;
+    /**
+     * Whether the monitor is paused.
+     * Nullable: true
+     */
+    isPaused?: boolean | null;
     /**
      * Labels to attach to the monitor/alert.
      */
@@ -7359,6 +7768,7 @@ export type UpdateViewRequest = {
     name?: string;
     override?: boolean;
     preset?: string;
+    tags?: Array<string>;
     team?: string;
     viewType?: string;
 };
@@ -7610,6 +8020,7 @@ export type View = {
     preset?: string;
     revisionNumber?: number;
     status?: string;
+    tags?: Array<string>;
     team?: string;
     tenantUuid?: string;
     updatedBy?: string;
@@ -7966,9 +8377,14 @@ export type CreateMonitorRequestWritable = {
      */
     executionErrorState?: 'OK' | 'Error' | 'Alerting';
     /**
-     * Whether the monitor is paused.
+     * Whether Slack notifications should omit the issue graph preview.
      */
-    isPaused?: boolean;
+    hideSlackPreviewGraph?: boolean;
+    /**
+     * Whether the monitor is paused.
+     * Nullable: true
+     */
+    isPaused?: boolean | null;
     /**
      * Labels to attach to the monitor/alert.
      */
@@ -8031,6 +8447,8 @@ export type PolicyWithEntityCountWritable = PolicyWritable;
 export type AgentSkillRequest2 = AgentSkillRequest;
 
 export type CreateUpdateLogsPipelineConfigRequest2 = CreateUpdateLogsPipelineConfigRequest;
+
+export type StorageManagementPolicyRequest2 = StorageManagementPolicyRequest;
 
 export type CreateUpdateMetricsAggregatorConfigRequest2 = CreateUpdateMetricsAggregatorConfigRequest;
 
@@ -8762,6 +9180,10 @@ export type GetDashboardsData = {
          * Dashboard source filter.
          */
         source?: 'gc-catalog' | 'terraform' | 'regular';
+        /**
+         * gcQL filter query (filters only, no pipes). Supported keys: name, owner, description, team, tags. Unkeyed terms are free text, matched as a case-insensitive substring across name, description, owner and tags.
+         */
+        query?: string;
     };
     url: '/api/dashboards';
 };
@@ -12048,6 +12470,195 @@ export type GetSecretHashResponses = {
 
 export type GetSecretHashResponse = GetSecretHashResponses[keyof GetSecretHashResponses];
 
+export type GetStorageManagementPoliciesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/storage-management';
+};
+
+export type GetStorageManagementPoliciesErrors = {
+    /**
+     * storageManagementErrorResponse is used for error responses
+     */
+    404: ErrorResponse;
+    /**
+     * storageManagementErrorResponse is used for error responses
+     */
+    500: ErrorResponse;
+    /**
+     * storageManagementErrorResponse is used for error responses
+     */
+    502: ErrorResponse;
+    /**
+     * storageManagementErrorResponse is used for error responses
+     */
+    503: ErrorResponse;
+};
+
+export type GetStorageManagementPoliciesError = GetStorageManagementPoliciesErrors[keyof GetStorageManagementPoliciesErrors];
+
+export type GetStorageManagementPoliciesResponses = {
+    /**
+     * storageManagementPolicyListResponse wraps a list of policy responses
+     */
+    200: Array<StorageManagementPolicyResponse>;
+};
+
+export type GetStorageManagementPoliciesResponse = GetStorageManagementPoliciesResponses[keyof GetStorageManagementPoliciesResponses];
+
+export type GetStorageManagementPolicyByTypeData = {
+    body?: never;
+    path: {
+        /**
+         * The data type to retrieve
+         */
+        data_type: string;
+    };
+    query?: never;
+    url: '/api/storage-management/{data_type}';
+};
+
+export type GetStorageManagementPolicyByTypeErrors = {
+    /**
+     * storageManagementErrorResponse is used for error responses
+     */
+    400: ErrorResponse;
+    /**
+     * storageManagementErrorResponse is used for error responses
+     */
+    404: ErrorResponse;
+    /**
+     * storageManagementErrorResponse is used for error responses
+     */
+    500: ErrorResponse;
+    /**
+     * storageManagementErrorResponse is used for error responses
+     */
+    502: ErrorResponse;
+    /**
+     * storageManagementErrorResponse is used for error responses
+     */
+    503: ErrorResponse;
+};
+
+export type GetStorageManagementPolicyByTypeError = GetStorageManagementPolicyByTypeErrors[keyof GetStorageManagementPolicyByTypeErrors];
+
+export type GetStorageManagementPolicyByTypeResponses = {
+    /**
+     * storageManagementPolicyResponse wraps a single policy response
+     */
+    200: StorageManagementPolicyResponse;
+};
+
+export type GetStorageManagementPolicyByTypeResponse = GetStorageManagementPolicyByTypeResponses[keyof GetStorageManagementPolicyByTypeResponses];
+
+export type CreateStorageManagementPolicyByTypeData = {
+    /**
+     * The policy to update
+     */
+    body: StorageManagementPolicyRequest2;
+    path: {
+        /**
+         * The data type to update
+         */
+        data_type: string;
+    };
+    query?: never;
+    url: '/api/storage-management/{data_type}';
+};
+
+export type CreateStorageManagementPolicyByTypeErrors = {
+    /**
+     * storageManagementErrorResponse is used for error responses
+     */
+    400: ErrorResponse;
+    /**
+     * storageManagementErrorResponse is used for error responses
+     */
+    404: ErrorResponse;
+    /**
+     * storageManagementErrorResponse is used for error responses
+     */
+    409: ErrorResponse;
+    /**
+     * storageManagementErrorResponse is used for error responses
+     */
+    500: ErrorResponse;
+    /**
+     * storageManagementErrorResponse is used for error responses
+     */
+    502: ErrorResponse;
+    /**
+     * storageManagementErrorResponse is used for error responses
+     */
+    503: ErrorResponse;
+};
+
+export type CreateStorageManagementPolicyByTypeError = CreateStorageManagementPolicyByTypeErrors[keyof CreateStorageManagementPolicyByTypeErrors];
+
+export type CreateStorageManagementPolicyByTypeResponses = {
+    /**
+     * storageManagementPolicyResponse wraps a single policy response
+     */
+    200: StorageManagementPolicyResponse;
+};
+
+export type CreateStorageManagementPolicyByTypeResponse = CreateStorageManagementPolicyByTypeResponses[keyof CreateStorageManagementPolicyByTypeResponses];
+
+export type UpdateStorageManagementPolicyByTypeData = {
+    /**
+     * The policy to update
+     */
+    body: StorageManagementPolicyRequest2;
+    path: {
+        /**
+         * The data type to update
+         */
+        data_type: string;
+    };
+    query?: never;
+    url: '/api/storage-management/{data_type}';
+};
+
+export type UpdateStorageManagementPolicyByTypeErrors = {
+    /**
+     * storageManagementErrorResponse is used for error responses
+     */
+    400: ErrorResponse;
+    /**
+     * storageManagementErrorResponse is used for error responses
+     */
+    404: ErrorResponse;
+    /**
+     * storageManagementErrorResponse is used for error responses
+     */
+    409: ErrorResponse;
+    /**
+     * storageManagementErrorResponse is used for error responses
+     */
+    500: ErrorResponse;
+    /**
+     * storageManagementErrorResponse is used for error responses
+     */
+    502: ErrorResponse;
+    /**
+     * storageManagementErrorResponse is used for error responses
+     */
+    503: ErrorResponse;
+};
+
+export type UpdateStorageManagementPolicyByTypeError = UpdateStorageManagementPolicyByTypeErrors[keyof UpdateStorageManagementPolicyByTypeErrors];
+
+export type UpdateStorageManagementPolicyByTypeResponses = {
+    /**
+     * storageManagementPolicyResponse wraps a single policy response
+     */
+    200: StorageManagementPolicyResponse;
+};
+
+export type UpdateStorageManagementPolicyByTypeResponse = UpdateStorageManagementPolicyByTypeResponses[keyof UpdateStorageManagementPolicyByTypeResponses];
+
 export type ListSyntheticTestsData = {
     body?: never;
     path?: never;
@@ -12203,111 +12814,3 @@ export type SearchTracesError = SearchTracesErrors[keyof SearchTracesErrors];
 export type SearchTracesResponses = {
     200: unknown;
 };
-
-export type DeleteWorkflowData = {
-    body?: never;
-    path: {
-        /**
-         * Unique identifier of the workflow to delete
-         */
-        id: string;
-    };
-    query?: never;
-    url: '/api/workflows/{id}';
-};
-
-export type DeleteWorkflowErrors = {
-    /**
-     * ErrorResponse defines a common error response structure.
-     */
-    400: {
-        message?: string;
-    };
-    /**
-     * ErrorResponse defines a common error response structure.
-     */
-    401: {
-        message?: string;
-    };
-    /**
-     * ErrorResponse defines a common error response structure.
-     */
-    500: {
-        message?: string;
-    };
-};
-
-export type DeleteWorkflowError = DeleteWorkflowErrors[keyof DeleteWorkflowErrors];
-
-export type DeleteWorkflowResponses = {
-    200: unknown;
-};
-
-export type CreateWorkflowData = {
-    /**
-     * Workflow definition in raw format
-     */
-    body: string;
-    path?: never;
-    query?: never;
-    url: '/api/workflows/create';
-};
-
-export type CreateWorkflowErrors = {
-    /**
-     * ErrorResponse defines a common error response structure.
-     */
-    400: {
-        message?: string;
-    };
-    /**
-     * ErrorResponse defines a common error response structure.
-     */
-    401: {
-        message?: string;
-    };
-    /**
-     * ErrorResponse defines a common error response structure.
-     */
-    500: {
-        message?: string;
-    };
-};
-
-export type CreateWorkflowError = CreateWorkflowErrors[keyof CreateWorkflowErrors];
-
-export type CreateWorkflowResponses = {
-    202: CreateWorkflowResponse;
-};
-
-export type CreateWorkflowResponse2 = CreateWorkflowResponses[keyof CreateWorkflowResponses];
-
-export type ListWorkflowsData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/api/workflows/list';
-};
-
-export type ListWorkflowsErrors = {
-    /**
-     * ErrorResponse defines a common error response structure.
-     */
-    401: {
-        message?: string;
-    };
-    /**
-     * ErrorResponse defines a common error response structure.
-     */
-    500: {
-        message?: string;
-    };
-};
-
-export type ListWorkflowsError = ListWorkflowsErrors[keyof ListWorkflowsErrors];
-
-export type ListWorkflowsResponses = {
-    200: WorkflowsResponse;
-};
-
-export type ListWorkflowsResponse = ListWorkflowsResponses[keyof ListWorkflowsResponses];

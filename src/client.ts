@@ -30,6 +30,12 @@ export interface GroundcoverConfig {
   timeout?: number;
 
   /**
+   * If true, allows creating the client without an API Key or Backend ID.
+   * Useful for hitting public endpoints or if auth is handled externally.
+   */
+  allowUnauthenticated?: boolean;
+
+  /**
    * Custom fetch implementation to use instead of the global fetch.
    */
   fetch?: typeof fetch;
@@ -45,7 +51,7 @@ export interface GroundcoverConfig {
   maxRetryWait?: number;
 
   /**
-   * Array of HTTP status codes that trigger a retry (default: [408, 429, 500, 502, 503, 504]).
+   * Array of HTTP status codes that trigger a retry (default: [429, 503]).
    */
   retryStatuses?: number[];
 
@@ -61,6 +67,14 @@ class RetryableResponseError extends Error {
     super(`Retryable status code: ${response.status}`);
     this.name = 'RetryableResponseError';
   }
+}
+
+// HTTP methods that are safe to replay after the server has already responded
+// with a retryable status.
+const IDEMPOTENT_METHODS = ['GET', 'HEAD', 'OPTIONS', 'TRACE'] as const;
+
+function isIdempotentMethod(method: string): boolean {
+  return IDEMPOTENT_METHODS.includes(method.toUpperCase() as (typeof IDEMPOTENT_METHODS)[number]);
 }
 
 /**
@@ -130,25 +144,29 @@ export function initClient(config?: GroundcoverConfig) {
   const traceparent = config?.traceparent || getEnvVar('GC_TRACEPARENT');
   const timeout = config?.timeout ?? 30000;
   const activeFetch = config?.fetch ?? globalThis.fetch;
-  const retryStatuses = config?.retryStatuses ?? [408, 429, 500, 502, 503, 504];
+  const retryStatuses =
+    config?.retryStatuses && config.retryStatuses.length > 0 ? config.retryStatuses : [429, 503];
 
-  if (!apiKey) {
+  const allowUnauthenticated = config?.allowUnauthenticated ?? false;
+
+  if (!allowUnauthenticated && !apiKey) {
     throw new Error(
       'groundcover API key is required. Pass it via config or set GC_API_KEY environment variable.',
     );
   }
 
-  if (!backendId) {
+  if (!allowUnauthenticated && !backendId) {
     throw new Error(
       'groundcover Backend ID is required. Pass it via config or set GC_BACKEND_ID environment variable.',
     );
   }
 
   const headers: Record<string, string> = {
-    Authorization: `Bearer ${apiKey}`,
-    'X-Backend-Id': backendId,
     'User-Agent': 'groundcover-ts-sdk',
   };
+
+  if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+  if (backendId) headers['X-Backend-Id'] = backendId;
 
   if (traceparent) {
     headers.traceparent = traceparent;
@@ -162,11 +180,6 @@ export function initClient(config?: GroundcoverConfig) {
       // Create the base Request once. If input is already a Request, we clone it
       // so we don't consume the caller's instance. If it's a URL/string, we construct it.
       const baseReq = input instanceof Request ? input.clone() : new Request(input, init);
-
-      // Fix content-type for workflows/create on the base request
-      if (baseReq.method === 'POST' && baseReq.url.endsWith('/api/workflows/create')) {
-        baseReq.headers.set('Content-Type', 'text/plain');
-      }
 
       const runFetch = async () => {
         // Clone for each attempt so the body isn't consumed
@@ -184,14 +197,8 @@ export function initClient(config?: GroundcoverConfig) {
             clearTimeout(timeoutId);
           }
         } catch (err) {
-          // Convert network/TypeError fetch failures to a non-retryable AbortError by default
-          // Only retry if explicitly intended: idempotent methods or requests with Idempotency-Key
-          const isIdempotentMethod = ['GET', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'].includes(
-            req.method.toUpperCase(),
-          );
-          const hasIdempotencyKey = req.headers.has('Idempotency-Key');
-
-          if (isIdempotentMethod || hasIdempotencyKey) {
+          // Only retry transport errors for idempotent methods (matches Go/Python SDKs).
+          if (isIdempotentMethod(req.method)) {
             throw err; // Allow p-retry to handle it
           }
 
@@ -224,11 +231,8 @@ export function initClient(config?: GroundcoverConfig) {
 
         // Trigger retry on certain status codes
         if (retryStatuses.includes(res.status)) {
-          // Do not retry non-idempotent requests (like POST/PATCH) unless they have an idempotency key
-          if (
-            ['POST', 'PATCH'].includes(req.method.toUpperCase()) &&
-            !req.headers.has('Idempotency-Key')
-          ) {
+          // Do not retry non-idempotent requests
+          if (!isIdempotentMethod(req.method)) {
             return res;
           }
           throw new RetryableResponseError(res);

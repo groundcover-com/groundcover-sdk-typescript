@@ -1,13 +1,13 @@
-import { beforeAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   createDataIntegrationConfig,
   deleteDataIntegrationConfig,
   describeDataIntegration,
   getDataIntegrationConfig,
   getDataIntegrationConfigs,
-  initClient,
   updateDataIntegrationConfig,
 } from '../../src/index.js';
+import { newTestClient } from './setup.js';
 
 const CLOUDWATCH_CONFIG = `{
   "version": 1,
@@ -74,21 +74,17 @@ const CLOUDWATCH_CONFIG_UPDATED = `{
 }`;
 
 describe('Data Integrations Lifecycle', () => {
-  let client: ReturnType<typeof initClient>;
-
-  beforeAll(() => {
-    client = initClient();
-  });
-
   it('list data integration configs', async () => {
-    const result = await getDataIntegrationConfigs({ client });
+    await using tc = newTestClient();
+    const result = await getDataIntegrationConfigs({ client: tc.client });
     expect(result.error).toBeUndefined();
     expect(result.response.status).toBe(200);
   });
 
   it('describe data integration type', async () => {
+    await using tc = newTestClient();
     const result = await describeDataIntegration({
-      client,
+      client: tc.client,
       path: { type: 'cloudwatch' },
     });
     expect(result.error).toBeUndefined();
@@ -96,90 +92,69 @@ describe('Data Integrations Lifecycle', () => {
   });
 
   it('cloudwatch crud', async () => {
+    await using tc = newTestClient();
     const uniqueName = `sdk-e2e-test-cloudwatch-${Date.now()}`;
-    let configId: string | undefined;
+    const { client } = tc;
 
-    try {
-      // Create
-      const createRes = await createDataIntegrationConfig({
-        client,
-        path: { type: 'cloudwatch' },
-        body: {
-          config: CLOUDWATCH_CONFIG,
-          name: uniqueName,
-        },
-      });
-      expect(createRes.error).toBeUndefined();
-      expect(createRes.response.status).toBe(201);
+    const createRes = await createDataIntegrationConfig({
+      client,
+      path: { type: 'cloudwatch' },
+      body: {
+        config: CLOUDWATCH_CONFIG,
+        name: uniqueName,
+      },
+    });
+    expect(createRes.error).toBeUndefined();
+    expect(createRes.response.status).toBe(201);
 
-      const createData = createRes.data;
-      expect(createData?.config).toBe(CLOUDWATCH_CONFIG);
-      expect(createData?.id).toBeDefined();
-      expect(createData?.update_timestamp).toBeDefined();
-      expect(createData?.is_archived).not.toBe(true);
+    const createData = createRes.data;
+    expect(createData?.config).toBe(CLOUDWATCH_CONFIG);
+    expect(createData?.id).toBeDefined();
+    expect(createData?.update_timestamp).toBeDefined();
+    expect(createData?.is_archived).not.toBe(true);
 
-      configId = createData?.id;
-      const originalTimestamp = createData?.update_timestamp;
+    const configId = createData!.id!;
+    tc.trackDataIntegrationConfig('cloudwatch', configId);
+    const originalTimestamp = createData?.update_timestamp;
 
-      // Get - verify config
-      const getRes = await getDataIntegrationConfig({
-        client,
-        path: { type: 'cloudwatch', id: configId! },
-      });
-      expect(getRes.error).toBeUndefined();
-      expect(getRes.response.status).toBe(200);
-      expect(getRes.data?.config).toBe(CLOUDWATCH_CONFIG);
-      expect(getRes.data?.is_archived).not.toBe(true);
+    const getRes = await getDataIntegrationConfig({
+      client,
+      path: { type: 'cloudwatch', id: configId },
+    });
+    expect(getRes.error).toBeUndefined();
+    expect(getRes.response.status).toBe(200);
+    expect(getRes.data?.config).toBe(CLOUDWATCH_CONFIG);
 
-      // Update
-      const updateRes = await updateDataIntegrationConfig({
-        client,
-        path: { type: 'cloudwatch', id: configId! },
-        body: {
-          config: CLOUDWATCH_CONFIG_UPDATED,
-          name: uniqueName,
-        },
-      });
-      expect(updateRes.error).toBeUndefined();
-      expect(updateRes.response.status).toBe(200);
+    const updateRes = await updateDataIntegrationConfig({
+      client,
+      path: { type: 'cloudwatch', id: configId },
+      body: {
+        config: CLOUDWATCH_CONFIG_UPDATED,
+        name: uniqueName,
+      },
+    });
+    expect(updateRes.error).toBeUndefined();
+    expect(updateRes.response.status).toBe(200);
+    expect(updateRes.data?.update_timestamp).not.toBe(originalTimestamp);
 
-      const updateData = updateRes.data;
-      expect(updateData?.config).toBe(CLOUDWATCH_CONFIG_UPDATED);
-      expect(updateData?.update_timestamp).toBeDefined();
-      expect(updateData?.update_timestamp).not.toBe(originalTimestamp);
+    const getResUpdated = await getDataIntegrationConfig({
+      client,
+      path: { type: 'cloudwatch', id: configId },
+    });
+    expect(getResUpdated.error).toBeUndefined();
+    expect(getResUpdated.data?.config).toBe(CLOUDWATCH_CONFIG_UPDATED);
 
-      // Get - verify updated config
-      const getResUpdated = await getDataIntegrationConfig({
-        client,
-        path: { type: 'cloudwatch', id: configId! },
-      });
-      expect(getResUpdated.error).toBeUndefined();
-      expect(getResUpdated.response.status).toBe(200);
-      expect(getResUpdated.data?.config).toBe(CLOUDWATCH_CONFIG_UPDATED);
-      expect(getResUpdated.data?.is_archived).not.toBe(true);
+    await deleteDataIntegrationConfig({
+      client,
+      path: { type: 'cloudwatch', id: configId },
+    });
+    tc.untrackDataIntegrationConfig('cloudwatch', configId);
 
-      // Delete
-      await deleteDataIntegrationConfig({
-        client,
-        path: { type: 'cloudwatch', id: configId! },
-      });
-
-      // Verify deletion - should return error (404 or 400)
-      const getResDeleted = await getDataIntegrationConfig({
-        client,
-        path: { type: 'cloudwatch', id: configId! },
-      });
-      expect(getResDeleted.error).toBeDefined();
-      expect([404, 400]).toContain(getResDeleted.response.status);
-
-      configId = undefined;
-    } finally {
-      if (configId) {
-        await deleteDataIntegrationConfig({
-          client,
-          path: { type: 'cloudwatch', id: configId },
-        }).catch(() => {});
-      }
-    }
+    const getResDeleted = await getDataIntegrationConfig({
+      client,
+      path: { type: 'cloudwatch', id: configId },
+    });
+    expect(getResDeleted.error).toBeDefined();
+    expect([404, 400]).toContain(getResDeleted.response.status);
   });
 });

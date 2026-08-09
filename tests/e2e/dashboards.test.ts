@@ -1,14 +1,14 @@
-import { beforeAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   archiveDashboard,
   createDashboard,
   deleteDashboard,
   getDashboard,
   getDashboards,
-  initClient,
   restoreDashboard,
   updateDashboard,
 } from '../../src/index.js';
+import { type TestClient, newTestClient } from './setup.js';
 
 const DASHBOARD_PRESET = JSON.stringify({
   duration: 'Last 30 minutes',
@@ -66,113 +66,90 @@ const UPDATED_PRESET = JSON.stringify({
   schemaVersion: 3,
 });
 
-async function findDashboard(client: ReturnType<typeof initClient>, id: string) {
+async function findDashboard(client: TestClient['client'], id: string) {
   const listRes = await getDashboards({ client });
   if (listRes.error) return null;
-  const dashboards =
-    (listRes.data as any)?.dashboards ||
-    (listRes.data as any)?.items ||
-    (Array.isArray(listRes.data) ? listRes.data : []);
-  return dashboards.find((d: any) => d.uuid === id) || null;
+  expect(Array.isArray(listRes.data)).toBe(true);
+  return listRes.data!.find((d) => d.uuid === id) ?? null;
 }
 
 describe('Dashboards Lifecycle', () => {
-  let client: ReturnType<typeof initClient>;
-
-  beforeAll(() => {
-    client = initClient();
-  });
-
   it('crud dashboard', async () => {
+    await using tc = newTestClient();
     const ts = Date.now();
     const dashboardTitle = `sdk-ts-e2e-test-dashboard-${ts}`;
+    const { client } = tc;
 
-    let dashboardId: string | undefined;
+    const createRes = await createDashboard({
+      client,
+      body: {
+        name: dashboardTitle,
+        description: 'Created by TS SDK E2E test',
+        preset: DASHBOARD_PRESET,
+      },
+    });
+    expect(createRes.error).toBeUndefined();
+    const dashboardId = createRes.data?.uuid;
+    expect(dashboardId).toBeDefined();
+    tc.trackDashboard(dashboardId!);
 
-    try {
-      // Create
-      const createRes = await createDashboard({
-        client,
-        body: {
-          name: dashboardTitle,
-          description: 'Created by TS SDK E2E test',
-          preset: DASHBOARD_PRESET,
-        },
-      });
-      expect(createRes.error).toBeUndefined();
-      dashboardId = createRes.data?.uuid;
-      expect(dashboardId).toBeDefined();
+    const createdRevision = createRes.data?.revisionNumber ?? 1;
 
-      const createdRevision = createRes.data?.revisionNumber ?? 1;
+    const created = await findDashboard(client, dashboardId!);
+    expect(created).toBeDefined();
+    expect(created.name).toBe(dashboardTitle);
+    expect(created.status).toBe('active');
 
-      // Find in list
-      const created = await findDashboard(client, dashboardId!);
-      expect(created).toBeDefined();
-      expect(created.name).toBe(dashboardTitle);
-      expect(created.status).toBe('active');
+    const getRes = await getDashboard({ client, path: { id: dashboardId! } });
+    expect(getRes.error).toBeUndefined();
+    expect(getRes.data?.name).toBe(dashboardTitle);
 
-      // Get
-      const getRes = await getDashboard({ client, path: { id: dashboardId! } });
-      expect(getRes.error).toBeUndefined();
-      expect(getRes.data?.name).toBe(dashboardTitle);
+    const updatedName = `${dashboardTitle}-updated`;
+    const updateRes = await updateDashboard({
+      client,
+      path: { id: dashboardId! },
+      body: {
+        name: updatedName,
+        description: 'Updated dashboard description',
+        preset: UPDATED_PRESET,
+        currentRevision: createdRevision,
+        override: false,
+      },
+    });
+    expect(updateRes.error).toBeUndefined();
 
-      // Update
-      const updatedName = `${dashboardTitle}-updated`;
-      const updateRes = await updateDashboard({
-        client,
-        path: { id: dashboardId! },
-        body: {
-          name: updatedName,
-          description: 'Updated dashboard description',
-          preset: UPDATED_PRESET,
-          currentRevision: createdRevision,
-          override: false,
-        },
-      });
-      expect(updateRes.error).toBeUndefined();
+    const updated = await findDashboard(client, dashboardId!);
+    expect(updated).toBeDefined();
+    expect(updated.name).toBe(updatedName);
+    expect(updated.revisionNumber).toBeGreaterThan(createdRevision);
 
-      const updated = await findDashboard(client, dashboardId!);
-      expect(updated).toBeDefined();
-      expect(updated.name).toBe(updatedName);
-      expect(updated.revisionNumber).toBeGreaterThan(createdRevision);
+    const archiveRes = await archiveDashboard({
+      client,
+      path: { id: dashboardId! },
+      query: { currentRevision: updated.revisionNumber },
+    });
+    expect(archiveRes.error).toBeUndefined();
 
-      // Archive
-      const archiveRes = await archiveDashboard({
-        client,
-        path: { id: dashboardId! },
-        query: { currentRevision: updated.revisionNumber },
-      });
-      expect(archiveRes.error).toBeUndefined();
+    const archived = await findDashboard(client, dashboardId!);
+    expect(archived).toBeDefined();
+    expect(archived.status).toBe('archived');
 
-      const archived = await findDashboard(client, dashboardId!);
-      expect(archived).toBeDefined();
-      expect(archived.status).toBe('archived');
+    const restoreRes = await restoreDashboard({
+      client,
+      path: { id: dashboardId! },
+      query: { currentRevision: archived.revisionNumber },
+    });
+    expect(restoreRes.error).toBeUndefined();
 
-      // Restore
-      const restoreRes = await restoreDashboard({
-        client,
-        path: { id: dashboardId! },
-        query: { currentRevision: archived.revisionNumber },
-      });
-      expect(restoreRes.error).toBeUndefined();
+    const restored = await findDashboard(client, dashboardId!);
+    expect(restored).toBeDefined();
+    expect(restored.status).toBe('active');
 
-      const restored = await findDashboard(client, dashboardId!);
-      expect(restored).toBeDefined();
-      expect(restored.status).toBe('active');
-    } finally {
-      if (dashboardId) {
-        // Cleanup runs for all relevant failures
-        await deleteDashboard({
-          client,
-          path: { id: dashboardId },
-        }).catch(() => {});
-      }
-    }
+    const deleteRes = await deleteDashboard({ client, path: { id: dashboardId! } });
+    expect(deleteRes.error).toBeUndefined();
+    tc.untrackDashboard(dashboardId!);
 
-    // Verify deleted
-    if (dashboardId) {
-      const deleted = await findDashboard(client, dashboardId);
-      expect(deleted).toBeNull();
-    }
+    const deleted = await findDashboard(client, dashboardId!);
+    expect(deleted).toBeNull();
   });
 });

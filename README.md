@@ -103,21 +103,25 @@ const client = initClient({
 
 ## Monitors (YAML)
 
-Monitor endpoints use YAML content-type, but you can consume them effectively using a YAML parser like `js-yaml`:
+Monitor endpoints return YAML content-type. The SDK provides a convenience wrapper `getMonitorParsed` to automatically parse the YAML response into a JavaScript object:
 
 ```typescript
-import yaml from 'js-yaml';
-import { getMonitor, updateMonitor } from '@groundcover/api-client';
+import { getMonitorParsed, createMonitor, updateMonitor } from '@groundcover/api-client';
 
-// Get returns YAML string in data
-const getRes = await getMonitor({ client, path: { id: 'monitor-id' } });
-const monitorData = yaml.load(getRes.data as string);
+// Fetch and automatically parse YAML to a JS object
+const { data: monitorObj, error } = await getMonitorParsed({ client, path: { id: 'monitor-id' } });
 
-// Update
+// Create or update using standard JS objects
+// (Since JSON is a valid subset of YAML, the standard client correctly serializes your object)
+await createMonitor({ 
+  client, 
+  body: { name: 'My Monitor', type: 'logs' } 
+});
+
 await updateMonitor({ 
   client, 
   path: { id: 'monitor-id' }, 
-  body: yaml.dump(updatedMonitorData) 
+  body: updatedMonitorObj 
 });
 ```
 
@@ -142,10 +146,10 @@ if (result.error) {
 
 ## Retry Behavior
 
-By default, the SDK retries on HTTP 503, 502, 500, 504, 408, and 429 with exponential backoff and jitter:
+By default, the SDK retries idempotent requests (`GET`, `HEAD`, `OPTIONS`, `TRACE`) on HTTP 429 and 503 with exponential backoff and jitter:
 
 - **Default retries**: 3
-- **Default retry statuses**: 408, 429, 500, 502, 503, 504
+- **Default retry statuses**: 429, 503
 - **Backoff**: Exponential with jitter, 1s min, 30s max
 
 ## Development
