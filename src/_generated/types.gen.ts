@@ -3306,7 +3306,25 @@ export type IntegrationCount = {
 };
 
 export type Integrations = {
+    /**
+     * Identity is the principal of the backend's own cloud (an AWS role ARN, a GCP
+     * service account email, or an Azure client id). Customers grant it access when the
+     * integration target lives in the same cloud as the backend.
+     */
     identity?: string;
+    /**
+     * OIDCIssuerURL and ServiceAccountSubject describe the backend cluster's Kubernetes
+     * OIDC identity. They are what a customer must trust to federate an integration
+     * whose target is on a different cloud than the backend, where Identity is not
+     * usable: the customer configures their own IAM/WIF/Entra trust against this issuer
+     * and subject, then derives the principal to grant themselves.
+     *
+     * Empty when the backend's cluster has no publicly reachable OIDC issuer, in which
+     * case cross-cloud federation is unavailable and static credentials remain the only
+     * option.
+     */
+    oidc_issuer_url?: string;
+    service_account_subject?: string;
 };
 
 export type InviteRequest = {
@@ -9209,7 +9227,7 @@ export type GetDashboardsResponses = {
     /**
      * GetDashboardsResponseWrapper defines the response structure for getting dashboards list.
      */
-    200: Array<View>;
+    200: Array<MemberView>;
 };
 
 export type GetDashboardsResponse = GetDashboardsResponses[keyof GetDashboardsResponses];
