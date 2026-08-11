@@ -167,7 +167,10 @@ jobs:
           echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
           echo "current_version=$OLD_VERSION_FROM_FILE" >> "$GITHUB_OUTPUT"
 
-          npm pkg set "version=$NEW_VERSION"
+          npm pkg set \
+            "version=$NEW_VERSION" \
+            "repository.type=git" \
+            "repository.url=git+https://github.com/${GITHUB_REPOSITORY}.git"
           PACKAGE_NAME="$(node -p "require('./package.json').name")"
           if [ -z "$PACKAGE_NAME" ]; then
             echo "Error: package.json must contain a package name."

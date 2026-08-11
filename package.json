@@ -2,6 +2,10 @@
   "name": "@groundcover/api-client",
   "version": "0.4.0",
   "description": "groundcover TypeScript API Client",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/groundcover-com/groundcover-sdk-typescript.git"
+  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
