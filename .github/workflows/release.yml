@@ -240,7 +240,7 @@ jobs:
           name: ${{ steps.artifact_name.outputs.name }}
           path: release-artifacts
           if-no-files-found: error
-          retention-days: 1
+          retention-days: 30
 
   reserve:
     needs: prepare
