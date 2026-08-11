@@ -314,7 +314,7 @@ jobs:
 
           SOURCE_DATE="$(git show -s --format=%aI "$SOURCE_SHA")"
           GIT_AUTHOR_DATE="$SOURCE_DATE" GIT_COMMITTER_DATE="$SOURCE_DATE" git commit -m "$COMMIT_MSG"
-          RELEASE_REF="refs/heads/release-preparations/v${NEW_VERSION}"
+          RELEASE_REF="refs/heads/release-preparations/v${NEW_VERSION}-${SOURCE_SHA}"
           git push origin "HEAD:${RELEASE_REF}"
           echo "release_commit_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           echo "release_ref=$RELEASE_REF" >> "$GITHUB_OUTPUT"
@@ -414,19 +414,22 @@ jobs:
           git fetch origin "$GITHUB_REF"
           CURRENT_SHA="$(git rev-parse FETCH_HEAD)"
           if [ "$CURRENT_SHA" != "$SOURCE_SHA" ]; then
-            echo "${GITHUB_REF_NAME} advanced during publication; rebasing the reserved release commit."
-            git rebase --onto "$CURRENT_SHA" "$SOURCE_SHA" "$RELEASE_COMMIT_SHA"
+            echo "Error: ${GITHUB_REF_NAME} moved during publication (${SOURCE_SHA} -> ${CURRENT_SHA})."
+            echo "The published commit remains available at the release preparation ref."
+            echo "Re-run the workflow against the latest revision to finalize the same npm artifact."
+            exit 1
           fi
-          git push origin "HEAD:${GITHUB_REF}"
+          git push origin "${RELEASE_COMMIT_SHA}:${GITHUB_REF}"
 
       - name: Create and Push Tag
         env:
           NEW_VERSION: ${{ needs.prepare.outputs.new_version }}
+          RELEASE_COMMIT_SHA: ${{ needs.reserve.outputs.release_commit_sha }}
         run: |
           set -euo pipefail
           NEW_VERSION_TAG="v${NEW_VERSION}"
           echo "Creating and pushing tag: $NEW_VERSION_TAG"
-          git tag "$NEW_VERSION_TAG"
+          git tag "$NEW_VERSION_TAG" "$RELEASE_COMMIT_SHA"
           git push origin "$NEW_VERSION_TAG"
 
       - name: Create GitHub Release
