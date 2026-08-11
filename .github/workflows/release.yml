@@ -1,8 +1,6 @@
 name: Release SDK
 permissions:
-  contents: write
-  # Required for npm trusted publishing via OIDC.
-  id-token: write
+  contents: read
 concurrency:
   group: release-${{ github.workflow }}
   cancel-in-progress: true
@@ -31,23 +29,20 @@ on:
         default: false
 
 jobs:
-  release:
+  prepare:
     runs-on: ubuntu-latest
+    outputs:
+      current_version: ${{ steps.version_logic.outputs.current_version }}
+      new_version: ${{ steps.version_logic.outputs.new_version }}
+      package_name: ${{ steps.version_logic.outputs.package_name }}
+      release_kind: ${{ steps.release_plan.outputs.release_kind }}
+      should_publish: ${{ steps.release_plan.outputs.should_publish }}
     steps:
-      # Create a GitHub app token for the auto-update app
-      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
-        id: app-token
-        with:
-          app-id: ${{ vars.GROUNDCOVER_BOT_APP_ID }}
-          private-key: ${{ secrets.GROUNDCOVER_BOT_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
-
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ github.ref }}
           fetch-depth: 0
-          token: ${{ steps.app-token.outputs.token }}
 
       - name: Capture repo version
         id: repo_version
@@ -69,7 +64,6 @@ jobs:
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: '24'
-          registry-url: 'https://registry.npmjs.org'
 
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
@@ -169,59 +163,178 @@ jobs:
           echo "current_version=$OLD_VERSION_FROM_FILE" >> "$GITHUB_OUTPUT"
 
           npm pkg set "version=$NEW_VERSION"
+          PACKAGE_NAME="$(node -p "require('./package.json').name")"
+          if [ -z "$PACKAGE_NAME" ]; then
+            echo "Error: package.json must contain a package name."
+            exit 1
+          fi
+          echo "package_name=$PACKAGE_NAME" >> "$GITHUB_OUTPUT"
 
-      - name: Commit & Push SDK and Version Changes
-        id: commit_changes
+      - name: Plan release
+        id: release_plan
         env:
-          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
-          COMMIT_HASH: ${{ github.event.inputs.commit_hash }}
           FORCE_PUBLISH: ${{ github.event.inputs.forcePublishNpm }}
           SDK_CHANGED: ${{ steps.sdk_changes.outputs.changed }}
           NEW_VERSION: ${{ steps.version_logic.outputs.new_version }}
           REPO_VERSION: ${{ steps.repo_version.outputs.version }}
         run: |
           set -euo pipefail
-          git config --global user.name 'groundcover-bot[bot]'
-          git config --global user.email 'groundcover-bot[bot]@users.noreply.github.com'
-
           if [ "$SDK_CHANGED" = "true" ]; then
-            echo "SDK content changed — committing SDK and version bump."
-            git add README.md package.json pnpm-lock.yaml pnpm-workspace.yaml src tests biome.json openapi-ts.config.ts tsconfig.json vitest.config.ts .gitignore
-            COMMIT_MSG="Update SDK to version ${NEW_VERSION} (SDK source: ${COMMIT_HASH})"
-            git commit -m "$COMMIT_MSG"
-            git push
-            echo "committed=true" >> "$GITHUB_OUTPUT"
+            echo "SDK content changed — preparing SDK and version release."
+            echo "release_kind=sdk" >> "$GITHUB_OUTPUT"
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
           elif [ "$FORCE_PUBLISH" = "true" ]; then
             if [ "$NEW_VERSION" = "$REPO_VERSION" ]; then
               echo "Error: forcePublishNpm requested but version is unchanged (${NEW_VERSION})."
               echo "Use isPatchVersion or isMajorVersion to pick a new version."
               exit 1
             fi
-            echo "forcePublishNpm enabled — committing version-only release (${REPO_VERSION} -> ${NEW_VERSION})."
-            git add package.json pnpm-lock.yaml
-            COMMIT_MSG="Release version ${NEW_VERSION} (force NPM publish, SDK source: ${COMMIT_HASH})"
-            git commit -m "$COMMIT_MSG"
-            git push
-            echo "committed=true" >> "$GITHUB_OUTPUT"
+            echo "forcePublishNpm enabled — preparing version-only release (${REPO_VERSION} -> ${NEW_VERSION})."
+            echo "release_kind=version-only" >> "$GITHUB_OUTPUT"
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
           else
-            echo "No SDK content changes. Skipping commit, tag, and release."
+            echo "No SDK content changes. Skipping npm publish, commit, tag, and release."
             echo "Tip: re-run with forcePublishNpm=true to publish a version-only release."
-            echo "committed=false" >> "$GITHUB_OUTPUT"
+            echo "release_kind=none" >> "$GITHUB_OUTPUT"
+            echo "should_publish=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Publish to NPM
-        if: steps.commit_changes.outputs.committed == 'true'
-        id: publish_npm
+      - name: Pack release artifacts
+        if: steps.release_plan.outputs.should_publish == 'true'
         run: |
           set -euo pipefail
-          npm publish --access public
-          echo "published=true" >> "$GITHUB_OUTPUT"
+          mkdir -p release-artifacts
+          npm pack --pack-destination release-artifacts
+          tar -czf release-artifacts/release-source.tar.gz \
+            README.md \
+            package.json \
+            pnpm-lock.yaml \
+            pnpm-workspace.yaml \
+            src \
+            tests \
+            biome.json \
+            openapi-ts.config.ts \
+            tsconfig.json \
+            vitest.config.ts \
+            .gitignore
+
+      - name: Upload release artifacts
+        if: steps.release_plan.outputs.should_publish == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-artifacts
+          path: release-artifacts
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    needs: prepare
+    if: needs.prepare.outputs.should_publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Restrict npm trusted-publishing credentials to this artifact-only job.
+      id-token: write
+    outputs:
+      released: ${{ steps.publish_npm.outputs.released }}
+    steps:
+      - name: Download release artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-artifacts
+          path: release-artifacts
+
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '24'
+
+      - name: Publish to NPM
+        id: publish_npm
+        env:
+          NEW_VERSION: ${{ needs.prepare.outputs.new_version }}
+          PACKAGE_NAME: ${{ needs.prepare.outputs.package_name }}
+        run: |
+          set -euo pipefail
+          PACKAGES=(release-artifacts/*.tgz)
+          if [ "${#PACKAGES[@]}" -ne 1 ]; then
+            echo "Error: expected exactly one npm package tarball."
+            exit 1
+          fi
+
+          PUBLISHED_VERSION="$(npm view "${PACKAGE_NAME}@${NEW_VERSION}" version 2>/dev/null || true)"
+          if [ "$PUBLISHED_VERSION" = "$NEW_VERSION" ]; then
+            echo "${PACKAGE_NAME}@${NEW_VERSION} is already available from npm; continuing finalization."
+          else
+            npm publish "${PACKAGES[0]}" --access public --ignore-scripts
+          fi
+          echo "released=true" >> "$GITHUB_OUTPUT"
+
+  finalize:
+    needs: [prepare, publish]
+    if: needs.publish.outputs.released == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # Create a GitHub app token for the auto-update app.
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        id: app-token
+        with:
+          app-id: ${{ vars.GROUNDCOVER_BOT_APP_ID }}
+          private-key: ${{ secrets.GROUNDCOVER_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Download release artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-artifacts
+          path: release-artifacts
+
+      - name: Restore prepared SDK and version
+        run: tar -xzf release-artifacts/release-source.tar.gz
+
+      - name: Commit & Push SDK and Version Changes
+        env:
+          COMMIT_HASH: ${{ github.event.inputs.commit_hash }}
+          NEW_VERSION: ${{ needs.prepare.outputs.new_version }}
+          RELEASE_KIND: ${{ needs.prepare.outputs.release_kind }}
+          REPO_VERSION: ${{ needs.prepare.outputs.current_version }}
+        run: |
+          set -euo pipefail
+          git config user.name 'groundcover-bot[bot]'
+          git config user.email 'groundcover-bot[bot]@users.noreply.github.com'
+
+          if [ "$RELEASE_KIND" = "sdk" ]; then
+            echo "npm release succeeded — committing SDK and version bump."
+            git add README.md package.json pnpm-lock.yaml pnpm-workspace.yaml src tests biome.json openapi-ts.config.ts tsconfig.json vitest.config.ts .gitignore
+            COMMIT_MSG="Update SDK to version ${NEW_VERSION} (SDK source: ${COMMIT_HASH})"
+          elif [ "$RELEASE_KIND" = "version-only" ]; then
+            echo "npm release succeeded — committing version-only release (${REPO_VERSION} -> ${NEW_VERSION})."
+            git add package.json pnpm-lock.yaml
+            COMMIT_MSG="Release version ${NEW_VERSION} (force NPM publish, SDK source: ${COMMIT_HASH})"
+          else
+            echo "Error: unsupported release kind: ${RELEASE_KIND}"
+            exit 1
+          fi
+
+          if git diff --staged --quiet; then
+            echo "Error: npm release succeeded but there are no prepared changes to commit."
+            exit 1
+          fi
+          git commit -m "$COMMIT_MSG"
+          git push
 
       - name: Create and Push Tag
-        if: steps.publish_npm.outputs.published == 'true'
         env:
-          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
-          NEW_VERSION: ${{ steps.version_logic.outputs.new_version }}
+          NEW_VERSION: ${{ needs.prepare.outputs.new_version }}
         run: |
           set -euo pipefail
           NEW_VERSION_TAG="v${NEW_VERSION}"
@@ -230,16 +343,15 @@ jobs:
           git push origin "$NEW_VERSION_TAG"
 
       - name: Create GitHub Release
-        if: steps.publish_npm.outputs.published == 'true'
         uses: actions/create-release@0cb9c9b65d5d1901c1f53e5e66eaf4afd303e70e # v1.1.4
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
         with:
-          tag_name: "v${{ steps.version_logic.outputs.new_version }}"
-          release_name: "Release v${{ steps.version_logic.outputs.new_version }}"
+          tag_name: "v${{ needs.prepare.outputs.new_version }}"
+          release_name: "Release v${{ needs.prepare.outputs.new_version }}"
           body: |
-            Automated release for version ${{ steps.version_logic.outputs.new_version }}.
+            Automated release for version ${{ needs.prepare.outputs.new_version }}.
             SDK source commit: ${{ github.event.inputs.commit_hash }}
-            Previous version: ${{ steps.version_logic.outputs.current_version }}
+            Previous version: ${{ needs.prepare.outputs.current_version }}
             Force NPM publish: ${{ github.event.inputs.forcePublishNpm }}
           draft: false
