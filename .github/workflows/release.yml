@@ -231,7 +231,7 @@ jobs:
         if: steps.release_plan.outputs.should_publish == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: release-artifacts
+          name: release-artifacts-${{ github.run_attempt }}
           path: release-artifacts
           if-no-files-found: error
           retention-days: 1
@@ -264,7 +264,7 @@ jobs:
       - name: Download release artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: release-artifacts
+          name: release-artifacts-${{ github.run_attempt }}
           path: release-artifacts
 
       - name: Restore prepared SDK and version
@@ -334,7 +334,7 @@ jobs:
       - name: Download release artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: release-artifacts
+          name: release-artifacts-${{ github.run_attempt }}
           path: release-artifacts
 
       - name: Setup Node.js
@@ -408,6 +408,7 @@ jobs:
 
       - name: Finalize release commit on source branch
         env:
+          NEW_VERSION: ${{ needs.prepare.outputs.new_version }}
           RELEASE_COMMIT_SHA: ${{ needs.reserve.outputs.release_commit_sha }}
           SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
         run: |
@@ -417,13 +418,22 @@ jobs:
 
           git fetch origin "$GITHUB_REF"
           CURRENT_SHA="$(git rev-parse FETCH_HEAD)"
-          if [ "$CURRENT_SHA" != "$SOURCE_SHA" ]; then
-            echo "Error: ${GITHUB_REF_NAME} moved during publication (${SOURCE_SHA} -> ${CURRENT_SHA})."
-            echo "The published commit remains available at the release preparation ref."
-            echo "Re-run the workflow against the latest revision to finalize the same npm artifact."
-            exit 1
+          if [ "$CURRENT_SHA" = "$RELEASE_COMMIT_SHA" ] || git merge-base --is-ancestor "$RELEASE_COMMIT_SHA" "$CURRENT_SHA"; then
+            echo "The reserved release is already integrated into ${GITHUB_REF_NAME}."
+            exit 0
           fi
-          git push origin "${RELEASE_COMMIT_SHA}:${GITHUB_REF}"
+
+          if [ "$CURRENT_SHA" = "$SOURCE_SHA" ]; then
+            FINAL_SHA="$RELEASE_COMMIT_SHA"
+          else
+            echo "${GITHUB_REF_NAME} advanced during publication; merging the immutable reserved release."
+            git switch --detach "$CURRENT_SHA"
+            git merge --no-ff -X theirs \
+              -m "Merge release v${NEW_VERSION}" \
+              "$RELEASE_COMMIT_SHA"
+            FINAL_SHA="$(git rev-parse HEAD)"
+          fi
+          git push origin "${FINAL_SHA}:${GITHUB_REF}"
 
       - name: Create and Push Tag
         env:
@@ -432,11 +442,32 @@ jobs:
         run: |
           set -euo pipefail
           NEW_VERSION_TAG="v${NEW_VERSION}"
-          echo "Creating and pushing tag: $NEW_VERSION_TAG"
-          git tag "$NEW_VERSION_TAG" "$RELEASE_COMMIT_SHA"
-          git push origin "$NEW_VERSION_TAG"
+          REMOTE_TAG_SHA="$(git ls-remote origin "refs/tags/${NEW_VERSION_TAG}" | cut -f1)"
+          if [ -z "$REMOTE_TAG_SHA" ]; then
+            echo "Creating and pushing tag: $NEW_VERSION_TAG"
+            git tag "$NEW_VERSION_TAG" "$RELEASE_COMMIT_SHA"
+            git push origin "$NEW_VERSION_TAG"
+          elif [ "$REMOTE_TAG_SHA" = "$RELEASE_COMMIT_SHA" ]; then
+            echo "Tag $NEW_VERSION_TAG already points to the reserved release commit."
+          else
+            echo "Error: tag $NEW_VERSION_TAG already points to $REMOTE_TAG_SHA, expected $RELEASE_COMMIT_SHA."
+            exit 1
+          fi
+
+      - name: Check for existing GitHub Release
+        id: release_state
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          NEW_VERSION: ${{ needs.prepare.outputs.new_version }}
+        run: |
+          if gh api "repos/${GITHUB_REPOSITORY}/releases/tags/v${NEW_VERSION}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Create GitHub Release
+        if: steps.release_state.outputs.exists != 'true'
         uses: actions/create-release@0cb9c9b65d5d1901c1f53e5e66eaf4afd303e70e # v1.1.4
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
