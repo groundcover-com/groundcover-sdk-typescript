@@ -9227,7 +9227,7 @@ export type GetDashboardsResponses = {
     /**
      * GetDashboardsResponseWrapper defines the response structure for getting dashboards list.
      */
-    200: Array<View>;
+    200: Array<MemberView>;
 };
 
 export type GetDashboardsResponse = GetDashboardsResponses[keyof GetDashboardsResponses];
