@@ -3,7 +3,8 @@ permissions:
   contents: read
 concurrency:
   group: release-${{ github.workflow }}
-  cancel-in-progress: true
+  # Never cancel after an immutable npm version may have been published.
+  cancel-in-progress: false
 
 on:
   workflow_dispatch:
@@ -314,7 +315,7 @@ jobs:
 
           SOURCE_DATE="$(git show -s --format=%aI "$SOURCE_SHA")"
           GIT_AUTHOR_DATE="$SOURCE_DATE" GIT_COMMITTER_DATE="$SOURCE_DATE" git commit -m "$COMMIT_MSG"
-          RELEASE_REF="refs/heads/release-preparations/v${NEW_VERSION}-${SOURCE_SHA}"
+          RELEASE_REF="refs/heads/release-preparations/v${NEW_VERSION}-${SOURCE_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           git push origin "HEAD:${RELEASE_REF}"
           echo "release_commit_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           echo "release_ref=$RELEASE_REF" >> "$GITHUB_OUTPUT"
@@ -358,6 +359,9 @@ jobs:
         env:
           NEW_VERSION: ${{ needs.prepare.outputs.new_version }}
           PACKAGE_NAME: ${{ needs.prepare.outputs.package_name }}
+          # workflow_dispatch points at the pre-release source commit. Disable
+          # automatic provenance rather than attest to the wrong source tree.
+          NPM_CONFIG_PROVENANCE: 'false'
         run: |
           set -euo pipefail
           PACKAGES=(release-artifacts/*.tgz)
