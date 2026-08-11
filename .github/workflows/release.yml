@@ -428,7 +428,7 @@ jobs:
           else
             echo "${GITHUB_REF_NAME} advanced during publication; merging the immutable reserved release."
             git switch --detach "$CURRENT_SHA"
-            git merge --no-ff -X theirs \
+            git merge --no-ff \
               -m "Merge release v${NEW_VERSION}" \
               "$RELEASE_COMMIT_SHA"
             FINAL_SHA="$(git rev-parse HEAD)"
