@@ -235,8 +235,92 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  publish:
+  reserve:
     needs: prepare
+    if: needs.prepare.outputs.should_publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      release_commit_sha: ${{ steps.reserve_release.outputs.release_commit_sha }}
+      release_ref: ${{ steps.reserve_release.outputs.release_ref }}
+    steps:
+      # Preserve the exact release commit remotely before npm publication.
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        id: app-token
+        with:
+          app-id: ${{ vars.GROUNDCOVER_BOT_APP_ID }}
+          private-key: ${{ secrets.GROUNDCOVER_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Checkout prepared source revision
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ needs.prepare.outputs.source_sha }}
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Download release artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-artifacts
+          path: release-artifacts
+
+      - name: Restore prepared SDK and version
+        run: |
+          set -euo pipefail
+          rm -rf \
+            README.md \
+            package.json \
+            pnpm-lock.yaml \
+            pnpm-workspace.yaml \
+            src \
+            tests \
+            biome.json \
+            openapi-ts.config.ts \
+            tsconfig.json \
+            vitest.config.ts \
+            .gitignore
+          tar -xzf release-artifacts/release-source.tar.gz
+
+      - name: Commit and reserve release
+        id: reserve_release
+        env:
+          COMMIT_HASH: ${{ github.event.inputs.commit_hash }}
+          NEW_VERSION: ${{ needs.prepare.outputs.new_version }}
+          RELEASE_KIND: ${{ needs.prepare.outputs.release_kind }}
+          REPO_VERSION: ${{ needs.prepare.outputs.current_version }}
+          SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          git config user.name 'groundcover-bot[bot]'
+          git config user.email 'groundcover-bot[bot]@users.noreply.github.com'
+
+          if [ "$RELEASE_KIND" = "sdk" ]; then
+            git add README.md package.json pnpm-lock.yaml pnpm-workspace.yaml src tests biome.json openapi-ts.config.ts tsconfig.json vitest.config.ts .gitignore
+            COMMIT_MSG="Update SDK to version ${NEW_VERSION} (SDK source: ${COMMIT_HASH})"
+          elif [ "$RELEASE_KIND" = "version-only" ]; then
+            git add package.json pnpm-lock.yaml
+            COMMIT_MSG="Release version ${NEW_VERSION} (force NPM publish, SDK source: ${COMMIT_HASH})"
+          else
+            echo "Error: unsupported release kind: ${RELEASE_KIND}"
+            exit 1
+          fi
+
+          if git diff --staged --quiet; then
+            echo "Error: there are no prepared changes to reserve."
+            exit 1
+          fi
+
+          SOURCE_DATE="$(git show -s --format=%aI "$SOURCE_SHA")"
+          GIT_AUTHOR_DATE="$SOURCE_DATE" GIT_COMMITTER_DATE="$SOURCE_DATE" git commit -m "$COMMIT_MSG"
+          RELEASE_REF="refs/heads/release-preparations/v${NEW_VERSION}"
+          git push origin "HEAD:${RELEASE_REF}"
+          echo "release_commit_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "release_ref=$RELEASE_REF" >> "$GITHUB_OUTPUT"
+
+  publish:
+    needs: [prepare, reserve]
     if: needs.prepare.outputs.should_publish == 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -297,7 +381,7 @@ jobs:
           echo "released=true" >> "$GITHUB_OUTPUT"
 
   finalize:
-    needs: [prepare, publish]
+    needs: [prepare, reserve, publish]
     if: needs.publish.outputs.released == 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -314,63 +398,25 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          ref: ${{ needs.prepare.outputs.source_sha }}
+          ref: ${{ needs.reserve.outputs.release_commit_sha }}
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token }}
 
-      - name: Download release artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: release-artifacts
-          path: release-artifacts
-
-      - name: Restore prepared SDK and version
-        run: |
-          set -euo pipefail
-          rm -rf \
-            README.md \
-            package.json \
-            pnpm-lock.yaml \
-            pnpm-workspace.yaml \
-            src \
-            tests \
-            biome.json \
-            openapi-ts.config.ts \
-            tsconfig.json \
-            vitest.config.ts \
-            .gitignore
-          tar -xzf release-artifacts/release-source.tar.gz
-
-      - name: Commit & Push SDK and Version Changes
+      - name: Finalize release commit on source branch
         env:
-          COMMIT_HASH: ${{ github.event.inputs.commit_hash }}
-          NEW_VERSION: ${{ needs.prepare.outputs.new_version }}
-          RELEASE_KIND: ${{ needs.prepare.outputs.release_kind }}
-          REPO_VERSION: ${{ needs.prepare.outputs.current_version }}
+          RELEASE_COMMIT_SHA: ${{ needs.reserve.outputs.release_commit_sha }}
+          SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
         run: |
           set -euo pipefail
           git config user.name 'groundcover-bot[bot]'
           git config user.email 'groundcover-bot[bot]@users.noreply.github.com'
 
-          if [ "$RELEASE_KIND" = "sdk" ]; then
-            echo "npm release succeeded — committing SDK and version bump."
-            git add README.md package.json pnpm-lock.yaml pnpm-workspace.yaml src tests biome.json openapi-ts.config.ts tsconfig.json vitest.config.ts .gitignore
-            COMMIT_MSG="Update SDK to version ${NEW_VERSION} (SDK source: ${COMMIT_HASH})"
-          elif [ "$RELEASE_KIND" = "version-only" ]; then
-            echo "npm release succeeded — committing version-only release (${REPO_VERSION} -> ${NEW_VERSION})."
-            git add package.json pnpm-lock.yaml
-            COMMIT_MSG="Release version ${NEW_VERSION} (force NPM publish, SDK source: ${COMMIT_HASH})"
-          else
-            echo "Error: unsupported release kind: ${RELEASE_KIND}"
-            exit 1
+          git fetch origin "$GITHUB_REF"
+          CURRENT_SHA="$(git rev-parse FETCH_HEAD)"
+          if [ "$CURRENT_SHA" != "$SOURCE_SHA" ]; then
+            echo "${GITHUB_REF_NAME} advanced during publication; rebasing the reserved release commit."
+            git rebase --onto "$CURRENT_SHA" "$SOURCE_SHA" "$RELEASE_COMMIT_SHA"
           fi
-
-          if git diff --staged --quiet; then
-            echo "Error: npm release succeeded but there are no prepared changes to commit."
-            exit 1
-          fi
-          git commit -m "$COMMIT_MSG"
-          # This guarded push rejects finalization if the source branch moved.
           git push origin "HEAD:${GITHUB_REF}"
 
       - name: Create and Push Tag
@@ -396,3 +442,9 @@ jobs:
             Previous version: ${{ needs.prepare.outputs.current_version }}
             Force NPM publish: ${{ github.event.inputs.forcePublishNpm }}
           draft: false
+
+      - name: Delete release preparation branch
+        continue-on-error: true
+        env:
+          RELEASE_REF: ${{ needs.reserve.outputs.release_ref }}
+        run: git push origin --delete "${RELEASE_REF#refs/heads/}"
