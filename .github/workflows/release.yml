@@ -75,7 +75,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
         with:
-          version: 10.33.0
+          version: 10.34.5
 
       - name: Download and Extract SDK
         env:
@@ -259,6 +259,8 @@ jobs:
           app-id: ${{ vars.GROUNDCOVER_BOT_APP_ID }}
           private-key: ${{ secrets.GROUNDCOVER_BOT_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
 
       - name: Checkout prepared source revision
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -404,6 +406,8 @@ jobs:
           app-id: ${{ vars.GROUNDCOVER_BOT_APP_ID }}
           private-key: ${{ secrets.GROUNDCOVER_BOT_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
 
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -474,18 +478,24 @@ jobs:
 
       - name: Create GitHub Release
         if: steps.release_state.outputs.exists != 'true'
-        uses: actions/create-release@0cb9c9b65d5d1901c1f53e5e66eaf4afd303e70e # v1.1.4
         env:
-          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
-        with:
-          tag_name: "v${{ needs.prepare.outputs.new_version }}"
-          release_name: "Release v${{ needs.prepare.outputs.new_version }}"
-          body: |
-            Automated release for version ${{ needs.prepare.outputs.new_version }}.
-            SDK source commit: ${{ github.event.inputs.commit_hash }}
-            Previous version: ${{ needs.prepare.outputs.current_version }}
-            Force NPM publish: ${{ github.event.inputs.forcePublishNpm }}
-          draft: false
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          COMMIT_HASH: ${{ github.event.inputs.commit_hash }}
+          CURRENT_VERSION: ${{ needs.prepare.outputs.current_version }}
+          FORCE_PUBLISH: ${{ github.event.inputs.forcePublishNpm }}
+          NEW_VERSION: ${{ needs.prepare.outputs.new_version }}
+        run: |
+          set -euo pipefail
+          NOTES="$(printf '%s\n' \
+            "Automated release for version ${NEW_VERSION}." \
+            "SDK source commit: ${COMMIT_HASH}" \
+            "Previous version: ${CURRENT_VERSION}" \
+            "Force NPM publish: ${FORCE_PUBLISH}")"
+          gh release create "v${NEW_VERSION}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Release v${NEW_VERSION}" \
+            --notes "$NOTES" \
+            --verify-tag
 
       - name: Delete release preparation branch
         continue-on-error: true
