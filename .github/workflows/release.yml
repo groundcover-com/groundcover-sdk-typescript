@@ -372,6 +372,7 @@ jobs:
           NPM_CONFIG_PROVENANCE: 'false'
         run: |
           set -euo pipefail
+          shopt -s nullglob
           PACKAGES=(release-artifacts/*.tgz)
           if [ "${#PACKAGES[@]}" -ne 1 ]; then
             echo "Error: expected exactly one npm package tarball."
@@ -426,24 +427,33 @@ jobs:
           git config user.name 'groundcover-bot[bot]'
           git config user.email 'groundcover-bot[bot]@users.noreply.github.com'
 
-          git fetch origin "$GITHUB_REF"
-          CURRENT_SHA="$(git rev-parse FETCH_HEAD)"
-          if [ "$CURRENT_SHA" = "$RELEASE_COMMIT_SHA" ] || git merge-base --is-ancestor "$RELEASE_COMMIT_SHA" "$CURRENT_SHA"; then
-            echo "The reserved release is already integrated into ${GITHUB_REF_NAME}."
-            exit 0
-          fi
+          for attempt in 1 2 3; do
+            git fetch origin "$GITHUB_REF"
+            CURRENT_SHA="$(git rev-parse FETCH_HEAD)"
+            if [ "$CURRENT_SHA" = "$RELEASE_COMMIT_SHA" ] || git merge-base --is-ancestor "$RELEASE_COMMIT_SHA" "$CURRENT_SHA"; then
+              echo "The reserved release is already integrated into ${GITHUB_REF_NAME}."
+              exit 0
+            fi
 
-          if [ "$CURRENT_SHA" = "$SOURCE_SHA" ]; then
-            FINAL_SHA="$RELEASE_COMMIT_SHA"
-          else
-            echo "${GITHUB_REF_NAME} advanced during publication; merging the immutable reserved release."
-            git switch --detach "$CURRENT_SHA"
-            git merge --no-ff \
-              -m "Merge release v${NEW_VERSION}" \
-              "$RELEASE_COMMIT_SHA"
-            FINAL_SHA="$(git rev-parse HEAD)"
-          fi
-          git push origin "${FINAL_SHA}:${GITHUB_REF}"
+            if [ "$CURRENT_SHA" = "$SOURCE_SHA" ]; then
+              FINAL_SHA="$RELEASE_COMMIT_SHA"
+            else
+              echo "${GITHUB_REF_NAME} advanced during publication; merging the immutable reserved release."
+              git switch --detach "$CURRENT_SHA"
+              git merge --no-ff \
+                -m "Merge release v${NEW_VERSION}" \
+                "$RELEASE_COMMIT_SHA"
+              FINAL_SHA="$(git rev-parse HEAD)"
+            fi
+
+            if git push origin "${FINAL_SHA}:${GITHUB_REF}"; then
+              exit 0
+            fi
+            echo "Push rejected because ${GITHUB_REF_NAME} moved again (attempt ${attempt}/3)."
+          done
+
+          echo "Error: could not finalize the release after 3 push attempts."
+          exit 1
 
       - name: Create and Push Tag
         env:
