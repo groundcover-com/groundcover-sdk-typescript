@@ -373,7 +373,9 @@ jobs:
         run: |
           set -euo pipefail
           shopt -s nullglob
-          PACKAGES=(release-artifacts/*.tgz)
+          # The ./ prefix forces npm to treat the argument as a local tarball
+          # instead of a GitHub repository shorthand.
+          PACKAGES=(./release-artifacts/*.tgz)
           if [ "${#PACKAGES[@]}" -ne 1 ]; then
             echo "Error: expected exactly one npm package tarball."
             exit 1
