@@ -1,11 +1,7 @@
 {
   "name": "@groundcover/api-client",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "groundcover TypeScript API Client",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/groundcover-com/groundcover-sdk-typescript.git"
-  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
@@ -45,5 +41,9 @@
   "dependencies": {
     "js-yaml": "^5.2.1",
     "p-retry": "^6.2.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/groundcover-com/groundcover-sdk-typescript.git"
   }
 }

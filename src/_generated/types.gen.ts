@@ -1502,12 +1502,23 @@ export type ConnectorMcpCapability = {
      * Stable identifier for the connector-provided MCP server.
      */
     serverId: string;
+    setup?: ConnectorMcpSetup;
     setupGuidance?: string;
     /**
      * Ownership kind for the MCP source.
      */
     sourceKind: string;
     userProxyPath?: string;
+};
+
+/**
+ * ConnectorMCPSetup describes provider setup readiness.
+ */
+export type ConnectorMcpSetup = {
+    /**
+     * Provider setup state.
+     */
+    state?: 'ready' | 'update_required';
 };
 
 /**
