@@ -1,10 +1,10 @@
 name: Release SDK
 permissions:
-  contents: write
-  packages: write
+  contents: read
 concurrency:
   group: release-${{ github.workflow }}
-  cancel-in-progress: true
+  # Never cancel after an immutable npm version may have been published.
+  cancel-in-progress: false
 
 on:
   workflow_dispatch:
@@ -30,23 +30,22 @@ on:
         default: false
 
 jobs:
-  release:
+  prepare:
     runs-on: ubuntu-latest
+    outputs:
+      artifact_name: ${{ steps.artifact_name.outputs.name }}
+      current_version: ${{ steps.version_logic.outputs.current_version }}
+      new_version: ${{ steps.version_logic.outputs.new_version }}
+      package_name: ${{ steps.version_logic.outputs.package_name }}
+      release_kind: ${{ steps.release_plan.outputs.release_kind }}
+      should_publish: ${{ steps.release_plan.outputs.should_publish }}
+      source_sha: ${{ steps.source_revision.outputs.sha }}
     steps:
-      # Create a GitHub app token for the auto-update app
-      - uses: actions/create-github-app-token@v1
-        id: app-token
-        with:
-          app-id: ${{ vars.GROUNDCOVER_BOT_APP_ID }}
-          private-key: ${{ secrets.GROUNDCOVER_BOT_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
-
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ github.ref }}
           fetch-depth: 0
-          token: ${{ steps.app-token.outputs.token }}
 
       - name: Capture repo version
         id: repo_version
@@ -64,16 +63,19 @@ jobs:
           echo "Published repo version: $VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
+      - name: Capture source revision
+        id: source_revision
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
-          node-version: '20'
-          registry-url: 'https://registry.npmjs.org'
+          node-version: '24'
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
         with:
-          version: 10.33.0
+          version: 10.34.5
 
       - name: Download and Extract SDK
         env:
@@ -167,76 +169,346 @@ jobs:
           echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
           echo "current_version=$OLD_VERSION_FROM_FILE" >> "$GITHUB_OUTPUT"
 
-          npm pkg set "version=$NEW_VERSION"
+          npm pkg set \
+            "version=$NEW_VERSION" \
+            "repository.type=git" \
+            "repository.url=git+https://github.com/${GITHUB_REPOSITORY}.git"
+          PACKAGE_NAME="$(node -p "require('./package.json').name")"
+          if [ -z "$PACKAGE_NAME" ]; then
+            echo "Error: package.json must contain a package name."
+            exit 1
+          fi
+          echo "package_name=$PACKAGE_NAME" >> "$GITHUB_OUTPUT"
 
-      - name: Commit & Push SDK and Version Changes
-        id: commit_changes
+      - name: Plan release
+        id: release_plan
         env:
-          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
-          COMMIT_HASH: ${{ github.event.inputs.commit_hash }}
           FORCE_PUBLISH: ${{ github.event.inputs.forcePublishNpm }}
           SDK_CHANGED: ${{ steps.sdk_changes.outputs.changed }}
           NEW_VERSION: ${{ steps.version_logic.outputs.new_version }}
           REPO_VERSION: ${{ steps.repo_version.outputs.version }}
         run: |
           set -euo pipefail
-          git config --global user.name 'groundcover-bot[bot]'
-          git config --global user.email 'groundcover-bot[bot]@users.noreply.github.com'
-
           if [ "$SDK_CHANGED" = "true" ]; then
-            echo "SDK content changed — committing SDK and version bump."
-            git add README.md package.json pnpm-lock.yaml pnpm-workspace.yaml src tests biome.json openapi-ts.config.ts tsconfig.json vitest.config.ts .gitignore
-            COMMIT_MSG="Update SDK to version ${NEW_VERSION} (SDK source: ${COMMIT_HASH})"
-            git commit -m "$COMMIT_MSG"
-            git push
-            echo "committed=true" >> "$GITHUB_OUTPUT"
+            echo "SDK content changed — preparing SDK and version release."
+            echo "release_kind=sdk" >> "$GITHUB_OUTPUT"
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
           elif [ "$FORCE_PUBLISH" = "true" ]; then
             if [ "$NEW_VERSION" = "$REPO_VERSION" ]; then
               echo "Error: forcePublishNpm requested but version is unchanged (${NEW_VERSION})."
               echo "Use isPatchVersion or isMajorVersion to pick a new version."
               exit 1
             fi
-            echo "forcePublishNpm enabled — committing version-only release (${REPO_VERSION} -> ${NEW_VERSION})."
-            git add package.json pnpm-lock.yaml
-            COMMIT_MSG="Release version ${NEW_VERSION} (force NPM publish, SDK source: ${COMMIT_HASH})"
-            git commit -m "$COMMIT_MSG"
-            git push
-            echo "committed=true" >> "$GITHUB_OUTPUT"
+            echo "forcePublishNpm enabled — preparing version-only release (${REPO_VERSION} -> ${NEW_VERSION})."
+            echo "release_kind=version-only" >> "$GITHUB_OUTPUT"
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
           else
-            echo "No SDK content changes. Skipping commit, tag, and release."
+            echo "No SDK content changes. Skipping npm publish, commit, tag, and release."
             echo "Tip: re-run with forcePublishNpm=true to publish a version-only release."
-            echo "committed=false" >> "$GITHUB_OUTPUT"
+            echo "release_kind=none" >> "$GITHUB_OUTPUT"
+            echo "should_publish=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Create and Push Tag
-        if: steps.commit_changes.outputs.committed == 'true'
+      - name: Pack release artifacts
+        if: steps.release_plan.outputs.should_publish == 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p release-artifacts
+          npm pack --pack-destination release-artifacts
+          tar -czf release-artifacts/release-source.tar.gz \
+            README.md \
+            package.json \
+            pnpm-lock.yaml \
+            pnpm-workspace.yaml \
+            src \
+            tests \
+            biome.json \
+            openapi-ts.config.ts \
+            tsconfig.json \
+            vitest.config.ts \
+            .gitignore
+
+      - name: Name release artifact
+        if: steps.release_plan.outputs.should_publish == 'true'
+        id: artifact_name
+        run: echo "name=release-artifacts-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload release artifacts
+        if: steps.release_plan.outputs.should_publish == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ steps.artifact_name.outputs.name }}
+          path: release-artifacts
+          if-no-files-found: error
+          retention-days: 30
+
+  reserve:
+    needs: prepare
+    if: needs.prepare.outputs.should_publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      release_commit_sha: ${{ steps.reserve_release.outputs.release_commit_sha }}
+      release_ref: ${{ steps.reserve_release.outputs.release_ref }}
+    steps:
+      # Preserve the exact release commit remotely before npm publication.
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        id: app-token
+        with:
+          app-id: ${{ vars.GROUNDCOVER_BOT_APP_ID }}
+          private-key: ${{ secrets.GROUNDCOVER_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+
+      - name: Checkout prepared source revision
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ needs.prepare.outputs.source_sha }}
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Download release artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ needs.prepare.outputs.artifact_name }}
+          path: release-artifacts
+
+      - name: Restore prepared SDK and version
+        run: |
+          set -euo pipefail
+          rm -rf \
+            README.md \
+            package.json \
+            pnpm-lock.yaml \
+            pnpm-workspace.yaml \
+            src \
+            tests \
+            biome.json \
+            openapi-ts.config.ts \
+            tsconfig.json \
+            vitest.config.ts \
+            .gitignore
+          tar -xzf release-artifacts/release-source.tar.gz
+
+      - name: Commit and reserve release
+        id: reserve_release
         env:
-          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
-          NEW_VERSION: ${{ steps.version_logic.outputs.new_version }}
+          COMMIT_HASH: ${{ github.event.inputs.commit_hash }}
+          NEW_VERSION: ${{ needs.prepare.outputs.new_version }}
+          RELEASE_KIND: ${{ needs.prepare.outputs.release_kind }}
+          REPO_VERSION: ${{ needs.prepare.outputs.current_version }}
+          SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          git config user.name 'groundcover-bot[bot]'
+          git config user.email 'groundcover-bot[bot]@users.noreply.github.com'
+
+          if [ "$RELEASE_KIND" = "sdk" ]; then
+            git add README.md package.json pnpm-lock.yaml pnpm-workspace.yaml src tests biome.json openapi-ts.config.ts tsconfig.json vitest.config.ts .gitignore
+            COMMIT_MSG="Update SDK to version ${NEW_VERSION} (SDK source: ${COMMIT_HASH})"
+          elif [ "$RELEASE_KIND" = "version-only" ]; then
+            git add package.json pnpm-lock.yaml
+            COMMIT_MSG="Release version ${NEW_VERSION} (force NPM publish, SDK source: ${COMMIT_HASH})"
+          else
+            echo "Error: unsupported release kind: ${RELEASE_KIND}"
+            exit 1
+          fi
+
+          if git diff --staged --quiet; then
+            echo "Error: there are no prepared changes to reserve."
+            exit 1
+          fi
+
+          SOURCE_DATE="$(git show -s --format=%aI "$SOURCE_SHA")"
+          GIT_AUTHOR_DATE="$SOURCE_DATE" GIT_COMMITTER_DATE="$SOURCE_DATE" git commit -m "$COMMIT_MSG"
+          RELEASE_REF="refs/heads/release-preparations/v${NEW_VERSION}-${SOURCE_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          git push origin "HEAD:${RELEASE_REF}"
+          echo "release_commit_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "release_ref=$RELEASE_REF" >> "$GITHUB_OUTPUT"
+
+  publish:
+    needs: [prepare, reserve]
+    if: needs.prepare.outputs.should_publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Restrict npm trusted-publishing credentials to this artifact-only job.
+      id-token: write
+    outputs:
+      released: ${{ steps.publish_npm.outputs.released }}
+    steps:
+      - name: Download release artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ needs.prepare.outputs.artifact_name }}
+          path: release-artifacts
+
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '24'
+
+      - name: Verify source revision is current
+        env:
+          SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          REMOTE_SHA="$(git ls-remote "https://github.com/${GITHUB_REPOSITORY}.git" "refs/heads/${GITHUB_REF_NAME}" | cut -f1)"
+          if [ -z "$REMOTE_SHA" ] || [ "$REMOTE_SHA" != "$SOURCE_SHA" ]; then
+            echo "Error: ${GITHUB_REF_NAME} moved after release preparation (${SOURCE_SHA} -> ${REMOTE_SHA:-unknown})."
+            echo "Re-run the workflow against the latest revision."
+            exit 1
+          fi
+
+      - name: Publish to NPM
+        id: publish_npm
+        env:
+          NEW_VERSION: ${{ needs.prepare.outputs.new_version }}
+          PACKAGE_NAME: ${{ needs.prepare.outputs.package_name }}
+          # workflow_dispatch points at the pre-release source commit. Disable
+          # automatic provenance rather than attest to the wrong source tree.
+          NPM_CONFIG_PROVENANCE: 'false'
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          PACKAGES=(release-artifacts/*.tgz)
+          if [ "${#PACKAGES[@]}" -ne 1 ]; then
+            echo "Error: expected exactly one npm package tarball."
+            exit 1
+          fi
+
+          LOCAL_INTEGRITY="sha512-$(openssl dgst -sha512 -binary "${PACKAGES[0]}" | openssl base64 -A)"
+          PUBLISHED_VERSION="$(npm view "${PACKAGE_NAME}@${NEW_VERSION}" version 2>/dev/null || true)"
+          if [ "$PUBLISHED_VERSION" = "$NEW_VERSION" ]; then
+            PUBLISHED_INTEGRITY="$(npm view "${PACKAGE_NAME}@${NEW_VERSION}" dist.integrity)"
+            if [ "$PUBLISHED_INTEGRITY" != "$LOCAL_INTEGRITY" ]; then
+              echo "Error: ${PACKAGE_NAME}@${NEW_VERSION} exists on npm with different package content."
+              exit 1
+            fi
+            echo "${PACKAGE_NAME}@${NEW_VERSION} with matching integrity is already available from npm; continuing finalization."
+          else
+            npm publish "${PACKAGES[0]}" --access public --ignore-scripts
+          fi
+          echo "released=true" >> "$GITHUB_OUTPUT"
+
+  finalize:
+    needs: [prepare, reserve, publish]
+    if: needs.publish.outputs.released == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # Create a GitHub app token for the auto-update app.
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        id: app-token
+        with:
+          app-id: ${{ vars.GROUNDCOVER_BOT_APP_ID }}
+          private-key: ${{ secrets.GROUNDCOVER_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ needs.reserve.outputs.release_commit_sha }}
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Finalize release commit on source branch
+        env:
+          NEW_VERSION: ${{ needs.prepare.outputs.new_version }}
+          RELEASE_COMMIT_SHA: ${{ needs.reserve.outputs.release_commit_sha }}
+          SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          git config user.name 'groundcover-bot[bot]'
+          git config user.email 'groundcover-bot[bot]@users.noreply.github.com'
+
+          for attempt in 1 2 3; do
+            git fetch origin "$GITHUB_REF"
+            CURRENT_SHA="$(git rev-parse FETCH_HEAD)"
+            if [ "$CURRENT_SHA" = "$RELEASE_COMMIT_SHA" ] || git merge-base --is-ancestor "$RELEASE_COMMIT_SHA" "$CURRENT_SHA"; then
+              echo "The reserved release is already integrated into ${GITHUB_REF_NAME}."
+              exit 0
+            fi
+
+            if [ "$CURRENT_SHA" = "$SOURCE_SHA" ]; then
+              FINAL_SHA="$RELEASE_COMMIT_SHA"
+            else
+              echo "${GITHUB_REF_NAME} advanced during publication; merging the immutable reserved release."
+              git switch --detach "$CURRENT_SHA"
+              git merge --no-ff \
+                -m "Merge release v${NEW_VERSION}" \
+                "$RELEASE_COMMIT_SHA"
+              FINAL_SHA="$(git rev-parse HEAD)"
+            fi
+
+            if git push origin "${FINAL_SHA}:${GITHUB_REF}"; then
+              exit 0
+            fi
+            echo "Push rejected because ${GITHUB_REF_NAME} moved again (attempt ${attempt}/3)."
+          done
+
+          echo "Error: could not finalize the release after 3 push attempts."
+          exit 1
+
+      - name: Create and Push Tag
+        env:
+          NEW_VERSION: ${{ needs.prepare.outputs.new_version }}
+          RELEASE_COMMIT_SHA: ${{ needs.reserve.outputs.release_commit_sha }}
         run: |
           set -euo pipefail
           NEW_VERSION_TAG="v${NEW_VERSION}"
-          echo "Creating and pushing tag: $NEW_VERSION_TAG"
-          git tag "$NEW_VERSION_TAG"
-          git push origin "$NEW_VERSION_TAG"
+          REMOTE_TAG_SHA="$(git ls-remote origin "refs/tags/${NEW_VERSION_TAG}" | cut -f1)"
+          if [ -z "$REMOTE_TAG_SHA" ]; then
+            echo "Creating and pushing tag: $NEW_VERSION_TAG"
+            git tag "$NEW_VERSION_TAG" "$RELEASE_COMMIT_SHA"
+            git push origin "$NEW_VERSION_TAG"
+          elif [ "$REMOTE_TAG_SHA" = "$RELEASE_COMMIT_SHA" ]; then
+            echo "Tag $NEW_VERSION_TAG already points to the reserved release commit."
+          else
+            echo "Error: tag $NEW_VERSION_TAG already points to $REMOTE_TAG_SHA, expected $RELEASE_COMMIT_SHA."
+            exit 1
+          fi
 
-      - name: Publish to NPM
-        if: steps.commit_changes.outputs.committed == 'true'
-        run: npm publish --access public
+      - name: Check for existing GitHub Release
+        id: release_state
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          NEW_VERSION: ${{ needs.prepare.outputs.new_version }}
+        run: |
+          if gh api "repos/${GITHUB_REPOSITORY}/releases/tags/v${NEW_VERSION}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Create GitHub Release
-        if: steps.commit_changes.outputs.committed == 'true'
-        uses: actions/create-release@v1
+        if: steps.release_state.outputs.exists != 'true'
         env:
-          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
-        with:
-          tag_name: "v${{ steps.version_logic.outputs.new_version }}"
-          release_name: "Release v${{ steps.version_logic.outputs.new_version }}"
-          body: |
-            Automated release for version ${{ steps.version_logic.outputs.new_version }}.
-            SDK source commit: ${{ github.event.inputs.commit_hash }}
-            Previous version: ${{ steps.version_logic.outputs.current_version }}
-            Force NPM publish: ${{ github.event.inputs.forcePublishNpm }}
-          draft: false
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          COMMIT_HASH: ${{ github.event.inputs.commit_hash }}
+          CURRENT_VERSION: ${{ needs.prepare.outputs.current_version }}
+          FORCE_PUBLISH: ${{ github.event.inputs.forcePublishNpm }}
+          NEW_VERSION: ${{ needs.prepare.outputs.new_version }}
+        run: |
+          set -euo pipefail
+          NOTES="$(printf '%s\n' \
+            "Automated release for version ${NEW_VERSION}." \
+            "SDK source commit: ${COMMIT_HASH}" \
+            "Previous version: ${CURRENT_VERSION}" \
+            "Force NPM publish: ${FORCE_PUBLISH}")"
+          gh release create "v${NEW_VERSION}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Release v${NEW_VERSION}" \
+            --notes "$NOTES" \
+            --verify-tag
+
+      - name: Delete release preparation branch
+        continue-on-error: true
+        env:
+          RELEASE_REF: ${{ needs.reserve.outputs.release_ref }}
+        run: git push origin --delete "${RELEASE_REF#refs/heads/}"
