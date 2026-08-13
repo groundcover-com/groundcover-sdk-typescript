@@ -154,6 +154,9 @@ By default, the SDK retries idempotent requests (`GET`, `HEAD`, `OPTIONS`, `TRAC
 
 ## Development
 
+The published client still runs on Node.js 18+. The Vitest/Vite toolchain used
+for `pnpm test:unit` needs Node.js 20.19+ or 22.12+ (Vite 8 / Vitest 4).
+
 ```bash
 cd sdk-typescript
 pnpm install

@@ -1,6 +1,6 @@
 {
   "name": "@groundcover/api-client",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "groundcover TypeScript API Client",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -19,7 +19,8 @@
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.0.0",
     "typescript": "^6.0.0",
-    "vitest": "^2.0.0"
+    "vite": "^8.2.1",
+    "vitest": "^4.1.11"
   },
   "engines": {
     "node": ">=18.0.0",
