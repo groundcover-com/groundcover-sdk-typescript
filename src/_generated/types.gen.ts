@@ -3659,6 +3659,9 @@ export type KeyItem = {
 
 export type KeyMapping = {
     groundcover_key?: string;
+    /**
+     * MetricPattern optionally scopes this mapping to groundcover metric names (not source metric names).
+     */
     metric_pattern?: string;
     source_key?: string;
 };
@@ -4532,6 +4535,7 @@ export type MappingConfig = {
     metric_name_char_replace?: {
         [key: string]: string;
     };
+    value_mappings?: Array<ValueMapping>;
 };
 
 export type MappingResponse = {
@@ -8500,6 +8504,31 @@ export type ValueItem = {
     description?: string;
     types?: Array<string>;
     value?: string;
+};
+
+export type ValueMapping = {
+    /**
+     * GroundcoverKey is derived from SourceKey and the applicable key mapping.
+     * It is returned for display but is never applied as a separate key-mapping rule.
+     */
+    groundcover_key?: string;
+    /**
+     * GroundcoverValue is the replacement value in the converted query.
+     */
+    groundcover_value: string;
+    /**
+     * MetricPattern optionally scopes this mapping to groundcover metric names (not source metric names).
+     * It is not supported for logs, traces, or events.
+     */
+    metric_pattern?: string;
+    /**
+     * SourceKey is the exact Datadog key whose value should be mapped.
+     */
+    source_key: string;
+    /**
+     * SourceValue is the exact Datadog value to replace.
+     */
+    source_value: string;
 };
 
 /**
