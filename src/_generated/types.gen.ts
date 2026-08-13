@@ -6430,6 +6430,43 @@ export type SpanLink = {
     traceState?: string;
 };
 
+export type SpanRecord = {
+    attributes?: {
+        [key: string]: unknown;
+    };
+    client?: string;
+    cluster?: string;
+    end_time?: string;
+    env?: string;
+    is_pii?: boolean;
+    kind?: string;
+    namespace?: string;
+    parent_id?: string;
+    protocol_type?: string;
+    query_parameters?: {
+        [key: string]: unknown;
+    };
+    request_body?: string;
+    request_headers?: {
+        [key: string]: unknown;
+    };
+    response_body?: string;
+    response_headers?: {
+        [key: string]: unknown;
+    };
+    server?: string;
+    source?: string;
+    span_id?: string;
+    span_name?: string;
+    start_time?: string;
+    status?: string;
+    tags?: {
+        [key: string]: string;
+    };
+    trace_id?: string;
+    workload?: string;
+};
+
 /**
  * SqlPipeline defines a pipeline for search queries.
  *
@@ -7425,6 +7462,19 @@ export type TracesSearchTimeSeriesRequest = {
      * named "metric_name" — it would collide with the synthetic label.
      */
     valueField?: string;
+};
+
+export type TracesSimulationRequest = {
+    ruleYaml?: string;
+    span?: SpanRecord;
+};
+
+export type TracesSimulationResponse = {
+    error?: string;
+    ruleRan?: boolean;
+    ruleValid?: boolean;
+    spanDropped?: boolean;
+    spanRecord?: SpanRecord;
 };
 
 /**
