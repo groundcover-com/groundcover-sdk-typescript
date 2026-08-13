@@ -1502,12 +1502,23 @@ export type ConnectorMcpCapability = {
      * Stable identifier for the connector-provided MCP server.
      */
     serverId: string;
+    setup?: ConnectorMcpSetup;
     setupGuidance?: string;
     /**
      * Ownership kind for the MCP source.
      */
     sourceKind: string;
     userProxyPath?: string;
+};
+
+/**
+ * ConnectorMCPSetup describes provider setup readiness.
+ */
+export type ConnectorMcpSetup = {
+    /**
+     * Provider setup state.
+     */
+    state?: 'ready' | 'update_required';
 };
 
 /**
@@ -2325,8 +2336,28 @@ export type CustomRule = {
  */
 export type DashboardFiltersRequest = {
     /**
-     * Optional dashboard source filter applied to the faceted set. One of
-     * gc-catalog, terraform, regular; empty/omitted means no source filter.
+     * Optional gcQL query narrowing the faceted set (e.g. free text, owner:x,
+     * tags:y, source:z, status:active).
+     * Empty means no query filter — including no status filter, so callers wanting
+     * only active dashboards must include status:active. Facets are disjunctive:
+     * a facet's own keyed conditions don't narrow that facet's value list, so a
+     * selected value's siblings stay listed and multi-select works (parity with
+     * monitors instances/filters).
+     */
+    query?: string;
+    /**
+     * Optional list of facet keys (owner, tags, source) that must appear in the
+     * response even when the filtered set produces no values for them — each such
+     * key comes back as an empty list instead of being omitted from the map. This
+     * only guarantees presence: every facet is computed regardless of what is listed
+     * here. Keys outside the supported facet set are rejected with a 400 rather than
+     * ignored.
+     */
+    required?: Array<Column>;
+    /**
+     * Deprecated: accepted (any value, unvalidated) and ignored — same contract as
+     * req.Sources on the type=monitors search path. Filter by source with the gcQL
+     * `source:` key in query, which is disjunctive where this field was not.
      */
     source?: string;
 };
@@ -7456,6 +7487,52 @@ export type UdpRequest = {
 export type UdpRequestKind = string;
 
 /**
+ * UnfurlSlowestSpan is the slowest span of the trace excluding the card's root
+ * (which would just restate the trace duration).
+ */
+export type UnfurlSlowestSpan = {
+    durationSeconds?: number;
+    name?: string;
+};
+
+/**
+ * UnfurlTraceRequest identifies the trace a shared link points at, verbatim
+ * from the link's drawer state. SpanID and Source drive the eBPF resolution:
+ * an eBPF drawer's traceId is the span's own raw id, so the propagated id must
+ * be resolved via span details before the waterfall is queried.
+ */
+export type UnfurlTraceRequest = {
+    /**
+     * SourceType is the trace's source type ("eBPF", "rum", …).
+     */
+    sourceType?: string;
+    spanId?: string;
+    time: string;
+    traceId: string;
+};
+
+/**
+ * UnfurlTraceSummary is the flat card-ready summary of a trace: exactly what a
+ * link-unfurl card renders, nothing more. TraceID is the resolved (propagated)
+ * id — the trace's stable identity regardless of which span the link came from.
+ */
+export type UnfurlTraceSummary = {
+    durationSeconds?: number;
+    errorCount?: number;
+    /**
+     * LimitReached marks a trace that reached UnfurlSpanLimit: SpanCount is then
+     * a floor, not the trace's size.
+     */
+    limitReached?: boolean;
+    operationName?: string;
+    resource?: string;
+    slowestSpan?: UnfurlSlowestSpan;
+    spanCount?: number;
+    spanName?: string;
+    traceId?: string;
+};
+
+/**
  * UnifiedSummary is the single hierarchical summary included in JSON output.
  */
 export type UnifiedSummary = {
@@ -9199,7 +9276,7 @@ export type GetDashboardsData = {
          */
         source?: 'gc-catalog' | 'terraform' | 'regular';
         /**
-         * gcQL filter query (filters only, no pipes). Supported keys: name, owner, description, team, tags. Unkeyed terms are free text, matched as a case-insensitive substring across name, description, owner and tags.
+         * gcQL filter query (filters only, no pipes). Supported keys: name, tags, owner, source, description, team. `status` is also accepted but intentionally not suggested by the filter-bar autocomplete — the status selector owns it via the top-level status param, and the two are ANDed, so a query status that contradicts the param yields an empty list. Unkeyed terms are free text, matched as a case-insensitive substring across name, description, owner and tags.
          */
         query?: string;
     };
