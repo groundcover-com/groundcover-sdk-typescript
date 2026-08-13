@@ -398,6 +398,58 @@ export type AssetFetchResult = {
     type?: string;
 };
 
+/**
+ * AssetFunnel is the wet-mode hierarchical breakdown for one asset type.
+ *
+ * Unit names what Total counts: monitors are counted whole, dashboards are
+ * counted per widget.
+ */
+export type AssetFunnel = {
+    excluded?: ExcludedBucket;
+    not_supported?: NotSupportedBucket;
+    supported_converted?: SupportedConvertedBucket;
+    supported_not_converted?: SupportedNotConvertedBucket;
+    total?: number;
+    unit?: string;
+};
+
+/**
+ * AssetGapDetail describes one unit's gaps, counted once regardless of how many
+ * findings produced it.
+ */
+export type AssetGapDetail = {
+    asset_id?: string;
+    asset_name?: string;
+    datasources?: Array<string>;
+    keys?: Array<string>;
+    keys_by_datasource?: {
+        [key: string]: Array<string>;
+    };
+    /**
+     * KeysByMetric and KeysByDatasource preserve which owner each missing key
+     * belongs to. Without them a unit missing a metric label and a log field
+     * reported both keys under the metric *and* under logs.
+     */
+    keys_by_metric?: {
+        [key: string]: Array<string>;
+    };
+    metrics?: Array<string>;
+    queries?: Array<ExecutedQuery>;
+    reason?: string;
+    /**
+     * SomeQueriesReturnedData distinguishes a unit where every query came back
+     * empty from one where only some did. Without it, a widget with nine working
+     * series and one broken one is indistinguishable from a wholly dead widget.
+     */
+    some_queries_returned_data?: boolean;
+    values?: Array<string>;
+    values_by_metric?: {
+        [key: string]: Array<string>;
+    };
+    widget_id?: string;
+    widget_title?: string;
+};
+
 export type AssetInstallResult = {
     /**
      * Error message if the installation failed.
@@ -1627,6 +1679,14 @@ export type ConvertMonitorResponse = {
 };
 
 /**
+ * CountPct is a count with percentage of its parent total.
+ */
+export type CountPct = {
+    count?: number;
+    pct?: number;
+};
+
+/**
  * CoverageAction defines an actionable step and its estimated query impact.
  */
 export type CoverageAction = {
@@ -2429,9 +2489,32 @@ export type DataScope = {
 };
 
 /**
+ * DataSetAvailableBucket is converted units whose underlying dataset exists in GC.
+ */
+export type DataSetAvailableBucket = {
+    /**
+     * Lookback is the widest window actually queried, so the report never claims
+     * a window it did not use.
+     */
+    lookback?: string;
+    no_data?: NoDataBreakdown;
+    returns_data?: CountPct;
+    total?: number;
+};
+
+/**
  * Datasource identifies the query backend.
  */
 export type Datasource = string;
+
+/**
+ * DatasourceKeyGap aggregates missing field keys for one search datasource.
+ */
+export type DatasourceKeyGap = {
+    count?: number;
+    datasource?: string;
+    keys?: Array<string>;
+};
 
 export type DeleteIngestionKeyRequest = {
     /**
@@ -2773,6 +2856,42 @@ export type EventsSearchTimeSeriesRequest = {
 };
 
 /**
+ * ExcludedBucket counts units held out of the funnel because their only unmet
+ * dependency is Datadog's own telemetry: a self-observability metric, or one
+ * already inactive in Datadog. Migration quality has no bearing on either —
+ * they were never going to return data — so they are reported separately
+ * rather than weighing on supported/unsupported like a real gap would.
+ */
+export type ExcludedBucket = {
+    datadog_self_observability?: MetricListBucket;
+    inactive_in_datadog?: MetricListBucket;
+    total?: number;
+};
+
+/**
+ * ExecutedQuery is the evidence for a unit's wet outcome: the query that ran,
+ *
+ * the window it ran over, and what came back.
+ */
+export type ExecutedQuery = {
+    datasource?: string;
+    error?: string;
+    language?: string;
+    /**
+     * Metric names the query's underlying metric, for datasource == "metrics"
+     * only. Without it a metrics query that returned no data cannot be traced
+     * back to which metric was empty without parsing the query text.
+     */
+    metric?: string;
+    original_dd?: string;
+    query?: string;
+    query_id?: string;
+    resolved_query?: string;
+    status?: string;
+    window?: string;
+};
+
+/**
  * ExecutionPolicy defines model for ExecutionPolicy.
  */
 export type ExecutionPolicy = {
@@ -2957,6 +3076,36 @@ export type Finding = {
     values_used?: Array<string>;
     widget_id?: string;
     widget_title?: string;
+};
+
+/**
+ * FunnelAssetEntry maps one asset — or one dashboard widget — to the funnel stage
+ * it reached, with the queries that were executed as evidence.
+ */
+export type FunnelAssetEntry = {
+    asset_id?: string;
+    asset_name?: string;
+    asset_type?: string;
+    metrics?: Array<string>;
+    missing_keys?: Array<string>;
+    missing_values?: Array<string>;
+    queries?: Array<ExecutedQuery>;
+    reason?: string;
+    stage?: string;
+    widget_id?: string;
+    widget_title?: string;
+};
+
+/**
+ * FunnelByAsset is the per-asset view of the funnel: every monitor and every
+ * dashboard widget, with the stage it terminated at.
+ */
+export type FunnelByAsset = {
+    assets?: Array<FunnelAssetEntry>;
+    by_stage?: {
+        [key: string]: number;
+    };
+    total?: number;
 };
 
 export type GenericFiltersItem = {
@@ -3336,6 +3485,17 @@ export type IntegrationCount = {
     name?: string;
 };
 
+/**
+ * IntegrationCountBucket counts units per data-source mapping.
+ */
+export type IntegrationCountBucket = {
+    by_integration?: {
+        [key: string]: number;
+    };
+    count?: number;
+    metrics?: Array<TaggedMetric>;
+};
+
 export type Integrations = {
     /**
      * Identity is the principal of the backend's own cloud (an AWS role ARN, a GCP
@@ -3501,6 +3661,20 @@ export type KeyMapping = {
     groundcover_key?: string;
     metric_pattern?: string;
     source_key?: string;
+};
+
+/**
+ * KeyMissingBreakdown groups units with missing keys.
+ *
+ * Metric label gaps and search field gaps are reported separately: a log or event
+ * field gap has no metric to attribute it to, and folding both into a by-metric
+ * view produced a meaningless "unknown" bucket.
+ */
+export type KeyMissingBreakdown = {
+    assets?: Array<AssetGapDetail>;
+    by_datasource?: Array<DatasourceKeyGap>;
+    by_metric?: Array<MetricKeyGap>;
+    count?: number;
 };
 
 export type KeysResponse = {
@@ -4119,6 +4293,22 @@ export type LogsInsightsRequestParams = {
     threshold?: number;
 };
 
+/**
+ * LogsMissingBucket covers units whose log dataset is absent, including the case
+ * where the log source they filter on is not ingested into groundcover at all.
+ */
+export type LogsMissingBucket = {
+    assets?: Array<AssetGapDetail>;
+    count?: number;
+    known_sources?: Array<string>;
+    missing_sources?: Array<string>;
+    /**
+     * SourceNotIngested counts units filtering on a source:<value> that
+     * groundcover does not ingest, which no lookback widening can fix.
+     */
+    source_not_ingested?: number;
+};
+
 export type LogsPatternParamDistributionResponse = {
     values?: Array<PatternParamDistributionValue>;
 };
@@ -4482,6 +4672,15 @@ export type Metadata = {
     target?: string;
 };
 
+/**
+ * MetricKeyGap aggregates missing label keys for one metric across units.
+ */
+export type MetricKeyGap = {
+    count?: number;
+    keys?: Array<string>;
+    metric?: string;
+};
+
 export type MetricKeysRequestV2 = {
     end?: string;
     filter?: string;
@@ -4500,9 +4699,26 @@ export type MetricLabels = {
     [key: string]: string;
 };
 
+/**
+ * MetricListBucket counts units and lists the metrics responsible.
+ */
+export type MetricListBucket = {
+    count?: number;
+    metrics?: Array<TaggedMetric>;
+};
+
 export type MetricMapping = {
     groundcover_metric?: string;
     source_metric?: string;
+};
+
+/**
+ * MetricValueGap aggregates missing label values for one metric.
+ */
+export type MetricValueGap = {
+    count?: number;
+    metric?: string;
+    values?: Array<string>;
 };
 
 export type MetricValuesRequestV2 = {
@@ -4835,6 +5051,34 @@ export type MigrationDetectedIntegration = {
 };
 
 /**
+ * MissingDataSetBucket covers converted units whose underlying dataset is absent.
+ */
+export type MissingDataSetBucket = {
+    logs?: LogsMissingBucket;
+    metrics?: MissingMetricsBreakdown;
+    missing_env?: ValueMissingBucket;
+    tail?: TailDataSetBreakdown;
+    total?: number;
+};
+
+/**
+ * MissingMetricsBreakdown splits missing metrics into mutually exclusive buckets.
+ *
+ * A metric can qualify for several buckets at once (a datadog.* metric that is
+ * also inactive, say). It is counted in exactly one — chosen by the priority
+ * order in classifyMissingMetric — and carries a tag for every bucket that
+ * applies, so nothing is lost to that choice.
+ */
+export type MissingMetricsBreakdown = {
+    custom_metrics?: MetricListBucket;
+    datadog_self_observability?: MetricListBucket;
+    inactive_in_datadog?: MetricListBucket;
+    integrations_we_dont_have?: IntegrationCountBucket;
+    integrations_we_have?: IntegrationCountBucket;
+    total?: number;
+};
+
+/**
  * Model holds the core query/reducer/threshold definitions.
  */
 export type Model = {
@@ -5009,6 +5253,44 @@ export type MonitorVariable = {
     prefix?: string;
     search?: VariableSearch;
     storage?: string;
+};
+
+/**
+ * NoDataBreakdown drills into units that did not come back fully working.
+ *
+ * A unit lands here when any of its queries returned no data, or when a static
+ * key/value gap was found. For a multi-query unit — a widget with several series,
+ * a monitor with a formula — that means "not all queries returned data" rather
+ * than "nothing returned data"; SomeQueriesReturnedData on each entry records
+ * which of the two it was.
+ */
+export type NoDataBreakdown = {
+    count?: number;
+    negative_key_missing?: KeyMissingBreakdown;
+    negative_value_missing?: ValueMissingBucket;
+    pct?: number;
+    positive_all_keys_values_exist?: PositiveNoDataBucket;
+};
+
+/**
+ * NoDataNeededBucket counts units that need no query to render.
+ */
+export type NoDataNeededBucket = {
+    by_type?: {
+        [key: string]: number;
+    };
+    count?: number;
+};
+
+/**
+ * NotSupportedBucket covers unsupported types, bucketed by type.
+ */
+export type NotSupportedBucket = {
+    assets?: Array<AssetGapDetail>;
+    by_type?: {
+        [key: string]: number;
+    };
+    total?: number;
 };
 
 export type NotificationRouteListItemResponse = {
@@ -5361,10 +5643,29 @@ export type PolicyWithEntityCount = Policy & {
 };
 
 /**
+ * PositiveNoDataBucket covers units where every dependency resolves yet no data
+ * came back, broken down by the reason we could establish.
+ */
+export type PositiveNoDataBucket = {
+    assets?: Array<AssetGapDetail>;
+    by_reason?: OrderedReasons;
+    count?: number;
+    pct?: number;
+};
+
+/**
  * PreflightReport is the top-level structured output of a preflight validation run.
  */
 export type PreflightReport = {
     coverage_plan?: CoveragePlan;
+    funnel_by_asset?: FunnelByAsset;
+    /**
+     * GeneratedAt is when this report was produced, set once right before it is
+     * written out. A report is often diffed against a later rerun after a fix, so
+     * the file needs to say for itself when it was taken without relying on
+     * filesystem mtimes, which a copy or a git checkout does not preserve.
+     */
+    generated_at?: string;
     integrations_summary?: Array<IntegrationCount>;
     raw_findings?: Array<Finding>;
     summary?: UnifiedSummary;
@@ -6572,9 +6873,49 @@ export type Subject = {
  */
 export type Suggestion = {
     confidence?: number;
-    reason?: string;
+    reasons?: Array<SuggestionReason>;
     type?: string;
     value?: string;
+};
+
+/**
+ * SuggestionReason is one scoring signal that contributed to a Suggestion.
+ *
+ * Weight is the signal's additive contribution within the scorer that produced
+ * it. Name-similarity signals and value-overlap signals are scored
+ * independently, so when both back the same candidate the suggestion carries
+ * reasons from each and Confidence is the higher of the two estimates rather
+ * than their sum — weights add up within a scorer, not across them.
+ *
+ * Detail carries the evidence behind the signal. For value-overlap signals that
+ * means the matched values themselves, which is what makes the difference
+ * between a suggestion worth acting on and one worth eyeballing.
+ */
+export type SuggestionReason = {
+    code?: string;
+    detail?: string;
+    weight?: number;
+};
+
+/**
+ * SupportedConvertedBucket covers units that converted successfully.
+ */
+export type SupportedConvertedBucket = {
+    data_set_available?: DataSetAvailableBucket;
+    missing_underlying_data_set?: MissingDataSetBucket;
+    no_data_needed?: NoDataNeededBucket;
+    total?: number;
+};
+
+/**
+ * SupportedNotConvertedBucket covers supported types that failed conversion.
+ */
+export type SupportedNotConvertedBucket = {
+    assets?: Array<AssetGapDetail>;
+    by_error?: {
+        [key: string]: number;
+    };
+    total?: number;
 };
 
 /**
@@ -6701,6 +7042,23 @@ export type SyntheticTestUpdateResponse = {
 export type SyntheticsCheckInput = {
     checkConfig?: WorkerRequest;
     interval?: string;
+};
+
+/**
+ * TaggedMetric names a metric plus every classification that applies to it.
+ */
+export type TaggedMetric = {
+    metric?: string;
+    tags?: Array<string>;
+};
+
+/**
+ * TailDataSetBreakdown covers non-metrics/logs datasets.
+ */
+export type TailDataSetBreakdown = {
+    events?: number;
+    rum?: number;
+    traces?: number;
 };
 
 /**
@@ -7624,13 +7982,19 @@ export type UnfurlTraceSummary = {
  * UnifiedSummary is the single hierarchical summary included in JSON output.
  */
 export type UnifiedSummary = {
-    affected_assets_by_type?: {
+    assets?: AssetsSummary;
+    /**
+     * AssetsByFindingType is the distribution of affected assets per finding
+     * type, keyed by asset type.
+     */
+    assets_by_finding_type?: {
         [key: string]: {
             [key: string]: number;
         };
     };
-    assets?: AssetsSummary;
     conversion?: ConversionSummary;
+    dashboards?: AssetFunnel;
+    monitors?: AssetFunnel;
     queries?: QueriesSummary;
     wet_validation?: WetValidationSummary;
 };
@@ -8100,6 +8464,15 @@ export type ValueItem = {
     value?: string;
 };
 
+/**
+ * ValueMissingBucket lists units whose filter values are absent in groundcover.
+ */
+export type ValueMissingBucket = {
+    assets?: Array<AssetGapDetail>;
+    by_metric?: Array<MetricValueGap>;
+    count?: number;
+};
+
 export type ValuesDistributionRequest = {
     conditions?: Array<Condition>;
     /**
@@ -8318,14 +8691,31 @@ export type WetResult = {
     asset_type?: string;
     datasource?: Datasource;
     error?: string;
+    /**
+     * HasFreeText mirrors WetQuery.HasFreeText.
+     */
+    has_free_text?: boolean;
     latency?: Duration;
+    /**
+     * Metric mirrors WetQuery.Metric.
+     */
+    metric?: string;
     original_dd?: string;
     query?: string;
     query_id?: string;
     query_type?: QueryType;
     resolved_query?: string;
     status?: WetStatus;
+    widget_id?: string;
     widget_title?: string;
+    /**
+     * Window is the span actually queried:
+     * "5m"          progressive first pass
+     * "30m"         dashboard long pass
+     * "7d"          monitor long pass (or whatever --wet-monitor-lookback sets)
+     * "instant"     instant query answered at a single point in time
+     * "instant→7d"  instant query was empty, so it was re-run as a range
+     */
     window?: string;
 };
 
