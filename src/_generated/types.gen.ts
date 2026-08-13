@@ -6437,12 +6437,25 @@ export type ServiceAccountsWithPolicy = {
 };
 
 export type Session = {
+    /**
+     * AppVersion is the mobile application version. Empty for web sessions, which
+     * report ReleaseID instead.
+     */
+    appVersion?: string;
     browser?: string;
     country?: string;
+    deviceBrand?: string;
+    deviceModel?: string;
     durationMilli?: number;
     endTime?: string;
     hasSessionReplay?: number;
     isMobile?: string;
+    /**
+     * Mobile RUM. Empty for web sessions, which report browser.* instead. The client
+     * platform is not returned: it is a filter dimension only.
+     */
+    osName?: string;
+    osVersion?: string;
     pageCount?: number;
     releaseId?: string;
     serviceName?: string;
@@ -6455,6 +6468,11 @@ export type Session = {
 };
 
 export type SessionDetailsRequestParams = {
+    /**
+     * Category selects the platform to query: 'rum' for web RUM, 'mobile-rum' for
+     * React Native. Defaults to 'rum' when omitted.
+     */
+    category?: 'rum' | 'mobile-rum';
     conditions?: Array<Condition>;
     end?: string;
     sessionID?: string;
@@ -6540,6 +6558,11 @@ export type SessionReplayVelocityResponse = {
 };
 
 export type SessionsFiltersRequestParams = {
+    /**
+     * Category selects the platform to query: 'rum' for web RUM, 'mobile-rum' for
+     * React Native. Defaults to 'rum' when omitted.
+     */
+    category?: 'rum' | 'mobile-rum';
     conditions?: Array<Condition>;
     end?: string;
     required?: Array<Column>;
@@ -6552,11 +6575,21 @@ export type SessionsFiltersResponse = {
 };
 
 export type SessionsQueryRequestParams = {
+    /**
+     * Category selects the platform to query: 'rum' for web RUM, 'mobile-rum' for
+     * React Native. Defaults to 'rum' when omitted.
+     */
+    category?: 'rum' | 'mobile-rum';
     conditions?: Array<Condition>;
     end?: string;
     limit?: number;
     skip?: number;
-    sortBy?: string;
+    /**
+     * Interpolated raw into ORDER BY, so this list is the only guard - and it is
+     * version-independent while the template is version-selected, so every value
+     * needs an alias in all three variants. Keep the enum below in lockstep.
+     */
+    sortBy?: 'sessionID' | 'startTime' | 'endTime' | 'userEmail' | 'userId' | 'country' | 'isMobile' | 'browser' | 'sessionErrors' | 'pageCount' | 'durationMilli' | 'osName' | 'deviceModel';
     sortOrder?: string;
     sources?: Array<Condition>;
     start?: string;
@@ -6567,6 +6600,11 @@ export type SessionsQueryResponse = {
 };
 
 export type SessionsSummaryRequestParams = {
+    /**
+     * Category selects the platform to query: 'rum' for web RUM, 'mobile-rum' for
+     * React Native. Defaults to 'rum' when omitted.
+     */
+    category?: 'rum' | 'mobile-rum';
     conditions?: Array<Condition>;
     end?: string;
     sources?: Array<Condition>;
