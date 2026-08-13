@@ -6075,7 +6075,7 @@ export type SearchDiscoveryRequest = {
     /**
      * Type specifies the type of discovery to perform.
      */
-    type: 'logs' | 'traces' | 'events' | 'issues' | 'entities' | 'apm' | 'monitors';
+    type: 'logs' | 'traces' | 'events' | 'issues' | 'entities' | 'apm' | 'monitors' | 'dashboards';
 };
 
 export type SearchKeysRequest = {
