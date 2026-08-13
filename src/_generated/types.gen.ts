@@ -7487,6 +7487,44 @@ export type UdpRequest = {
 export type UdpRequestKind = string;
 
 /**
+ * UnfurlCard is the provider-agnostic card POST /api/unfurl resolves a shared
+ * link to. ExternalRefID is the resolved asset's stable identity — not
+ * necessarily anything present verbatim in the URL. Fields is display-ordered:
+ * the slice order IS the order a renderer shows them in.
+ */
+export type UnfurlCard = {
+    displayType?: string;
+    externalRefId?: string;
+    fields?: Array<UnfurlCardField>;
+    title?: string;
+    type?: string;
+};
+
+/**
+ * UnfurlCardField is one labeled value on an unfurl card. Value is typed per
+ * ValueType ("string" or "integer") so a provider-side renderer (Slack Work
+ * Object today) can pick the right field type without inspecting the Go
+ * value's kind. Link is omitted when the field carries no follow-up URL.
+ */
+export type UnfurlCardField = {
+    key?: string;
+    label?: string;
+    link?: string;
+    value?: unknown;
+    valueType?: string;
+};
+
+/**
+ * UnfurlRequest is the request body: the shared frontend URL, already
+ * HTML-unescaped by the caller (Slack's link_shared event carries an
+ * HTML-escaped URL; unescaping it before this endpoint sees it is what keeps
+ * literal &amp; and &lt; out of the resolved card).
+ */
+export type UnfurlRequest = {
+    url: string;
+};
+
+/**
  * UnfurlSlowestSpan is the slowest span of the trace excluding the card's root
  * (which would just restate the trace duration).
  */
