@@ -1538,7 +1538,10 @@ export type ConnectorListResponse = {
  * ConnectorMCPCapability describes an MCP source exposed by a first-class connector.
  */
 export type ConnectorMcpCapability = {
-    authState?: string;
+    /**
+     * Whether MCP requests can be authenticated. Omitted when not applicable.
+     */
+    authState?: 'ready' | 'awaiting_auth';
     /**
      * Display name shown for the MCP source.
      */
@@ -1547,9 +1550,9 @@ export type ConnectorMcpCapability = {
     orgDiscoveryPath?: string;
     /**
      * Whether the connected credential holds all grantable user scopes ("full")
-     * or a re-consent could grant more ("partial"). Empty when not applicable.
+     * or a re-consent could grant more ("partial"). Omitted when not applicable.
      */
-    scopeStatus?: string;
+    scopeStatus?: 'full' | 'partial';
     /**
      * Stable identifier for the connector-provided MCP server.
      */
@@ -1570,7 +1573,7 @@ export type ConnectorMcpSetup = {
     /**
      * Provider setup state.
      */
-    state?: 'ready' | 'update_required';
+    state: 'ready' | 'update_required';
 };
 
 /**
@@ -5478,8 +5481,8 @@ export type OrderedReasons = Array<ReasonEntry>;
  * OrgConnectorUpdateRequest wraps mutable org connector fields.
  *
  * For Slack, `name` may be set at the top level and `data` may include
- * `client_secret` and/or `app_token`. For MCP, `data` may include
- * `admin_token`. Omitted `data` is treated as an empty object.
+ * `client_secret` and/or `app_token`. For MCP, `data` carries OAuth client
+ * fields only. Omitted `data` is treated as an empty object.
  */
 export type OrgConnectorUpdateRequest = {
     /**
