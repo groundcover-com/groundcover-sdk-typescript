@@ -321,38 +321,10 @@ jobs:
             exit 1
           fi
 
-          TREE_SHA="$(git write-tree)"
-          REF_PREFIX="refs/heads/release-preparations/v${NEW_VERSION}-${SOURCE_SHA}-"
-          RELEASE_COMMIT_SHA=""
-          RELEASE_REF=""
-
-          # Reuse an identical reservation from an earlier attempt so retries
-          # remain resumable without forcing every release to inherit its
-          # source commit's timestamp.
-          while read -r CANDIDATE_SHA CANDIDATE_REF; do
-            [ -n "$CANDIDATE_SHA" ] || continue
-            git fetch --no-tags origin "$CANDIDATE_REF"
-            CANDIDATE_TREE="$(git show -s --format=%T "$CANDIDATE_SHA")"
-            CANDIDATE_PARENTS="$(git show -s --format=%P "$CANDIDATE_SHA")"
-            CANDIDATE_MESSAGE="$(git show -s --format=%B "$CANDIDATE_SHA")"
-            if [ "$CANDIDATE_TREE" = "$TREE_SHA" ] && \
-               [ "$CANDIDATE_PARENTS" = "$SOURCE_SHA" ] && \
-               [ "$CANDIDATE_MESSAGE" = "$COMMIT_MSG" ]; then
-              RELEASE_COMMIT_SHA="$CANDIDATE_SHA"
-              RELEASE_REF="$CANDIDATE_REF"
-              echo "Reusing matching reserved release commit $RELEASE_COMMIT_SHA."
-              break
-            fi
-          done < <(git ls-remote --refs origin "${REF_PREFIX}*")
-
-          if [ -z "$RELEASE_COMMIT_SHA" ]; then
-            git commit -m "$COMMIT_MSG"
-            RELEASE_COMMIT_SHA="$(git rev-parse HEAD)"
-            RELEASE_REF="${REF_PREFIX}${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-            git push origin "${RELEASE_COMMIT_SHA}:${RELEASE_REF}"
-          fi
-
-          echo "release_commit_sha=$RELEASE_COMMIT_SHA" >> "$GITHUB_OUTPUT"
+          git commit -m "$COMMIT_MSG"
+          RELEASE_REF="refs/heads/release-preparations/v${NEW_VERSION}-${SOURCE_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          git push origin "HEAD:${RELEASE_REF}"
+          echo "release_commit_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           echo "release_ref=$RELEASE_REF" >> "$GITHUB_OUTPUT"
 
   publish:
