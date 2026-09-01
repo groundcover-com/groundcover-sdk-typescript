@@ -321,8 +321,7 @@ jobs:
             exit 1
           fi
 
-          SOURCE_DATE="$(git show -s --format=%aI "$SOURCE_SHA")"
-          GIT_AUTHOR_DATE="$SOURCE_DATE" GIT_COMMITTER_DATE="$SOURCE_DATE" git commit -m "$COMMIT_MSG"
+          git commit -m "$COMMIT_MSG"
           RELEASE_REF="refs/heads/release-preparations/v${NEW_VERSION}-${SOURCE_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           git push origin "HEAD:${RELEASE_REF}"
           echo "release_commit_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
