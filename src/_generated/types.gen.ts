@@ -8020,6 +8020,11 @@ export type UnfurlTraceSummary = {
     slowestSpan?: UnfurlSlowestSpan;
     spanCount?: number;
     spanName?: string;
+    /**
+     * StatusCode is the root span's protocol return code ("200", "500", a gRPC
+     * code, …), empty for a protocol that has none.
+     */
+    statusCode?: string;
     traceId?: string;
 };
 
