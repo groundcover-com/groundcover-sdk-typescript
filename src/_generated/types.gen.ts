@@ -547,6 +547,12 @@ export type AssetListItem = {
      */
     missing_data_sources?: Array<string>;
     /**
+     * Metric names used by this data source that are not currently live in groundcover.
+     * Populated for synthesized metrics items returned with dataSourceId. Null means
+     * coverage has not been computed because the migration predates this field.
+     */
+    missing_metrics?: Array<string> | null;
+    /**
      * Missing requirements for full conversion.
      */
     missing_reqs?: {
