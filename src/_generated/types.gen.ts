@@ -2409,8 +2409,8 @@ export type DashboardFiltersRequest = {
      */
     query?: string;
     /**
-     * Optional list of facet keys (owner, tags, source) that must appear in the
-     * response even when the filtered set produces no values for them — each such
+     * Optional list of facet keys (owner, tags, source, favorites) that must
+     * appear in the response even when the filtered set produces no values for them — each such
      * key comes back as an empty list instead of being omitted from the map. This
      * only guarantees presence: every facet is computed regardless of what is listed
      * here. Keys outside the supported facet set are rejected with a 400 rather than
@@ -9829,7 +9829,7 @@ export type GetDashboardsData = {
          */
         source?: 'gc-catalog' | 'terraform' | 'regular';
         /**
-         * gcQL filter query (filters only, no pipes). Supported keys: name, tags, owner, source, description, team. `status` is also accepted but intentionally not suggested by the filter-bar autocomplete — the status selector owns it via the top-level status param, and the two are ANDed, so a query status that contradicts the param yields an empty list. Unkeyed terms are free text, matched as a case-insensitive substring across name, description, owner and tags.
+         * gcQL filter query (filters only, no pipes). Supported keys: name, tags, owner, source, description, team. `status` and `favorites` (e.g. favorites:true, scoped to the authenticated member) are also accepted but intentionally not suggested by the filter-bar autocomplete — the status selector owns status via the top-level status param (the two are ANDed, so a query status that contradicts the param yields an empty list), and the facet panel owns favorites. Unkeyed terms are free text, matched as a case-insensitive substring across name, description, owner and tags.
          */
         query?: string;
     };
