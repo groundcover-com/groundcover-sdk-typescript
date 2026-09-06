@@ -684,6 +684,10 @@ export type AssociatedRequestV2 = {
      */
     filterAssociated?: Array<AssociatedFilter>;
     /**
+     * Filter value to narrow the returned values (substring match), same as /values
+     */
+    filterValue?: string;
+    /**
      * Key to search for values
      */
     key: string;
