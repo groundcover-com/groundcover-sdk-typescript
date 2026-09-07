@@ -3672,11 +3672,16 @@ export type KeyItem = {
 };
 
 export type KeyMapping = {
+    evidence?: MappingEvidence;
     groundcover_key?: string;
     /**
      * MetricPattern optionally scopes this mapping to groundcover metric names (not source metric names).
      */
     metric_pattern?: string;
+    /**
+     * Origin is server-owned normalization provenance.
+     */
+    readonly origin?: string;
     source_key?: string;
 };
 
@@ -4552,6 +4557,19 @@ export type MappingConfig = {
     value_mappings?: Array<ValueMapping>;
 };
 
+/**
+ * MappingEvidence records why an automatically discovered mapping was safe to persist.
+ */
+export type MappingEvidence = {
+    kind?: string;
+    metric?: string;
+    /**
+     * PoolSize is the size of the pruned candidate pool the discovery query
+     * returned, not the size of the tenant's metric catalog.
+     */
+    pool_size?: number;
+};
+
 export type MappingResponse = {
     config?: MappingConfig;
     /**
@@ -4726,7 +4744,12 @@ export type MetricListBucket = {
 };
 
 export type MetricMapping = {
+    evidence?: MappingEvidence;
     groundcover_metric?: string;
+    /**
+     * Origin is server-owned normalization provenance.
+     */
+    readonly origin?: string;
     source_metric?: string;
 };
 
@@ -9013,6 +9036,14 @@ export type ReasonEntry = {
     Reason?: string;
 };
 
+export type CreateMappingsRequestWritable = {
+    config: MappingConfigWritable;
+    /**
+     * The data type for this mappings configuration.
+     */
+    dataType: 'metrics' | 'logs' | 'traces' | 'events';
+};
+
 export type CreateMonitorRequestWritable = {
     /**
      * Annotations to attach to the alert.
@@ -9078,6 +9109,67 @@ export type CreateMonitorRequestWritable = {
     title: string;
 };
 
+export type KeyMappingWritable = {
+    evidence?: MappingEvidence;
+    groundcover_key?: string;
+    /**
+     * MetricPattern optionally scopes this mapping to groundcover metric names (not source metric names).
+     */
+    metric_pattern?: string;
+    source_key?: string;
+};
+
+export type MappingConfigWritable = {
+    default_rate_window?: string;
+    key_mappings?: Array<KeyMappingWritable>;
+    metric_mappings?: Array<MetricMappingWritable>;
+    metric_name_char_replace?: {
+        [key: string]: string;
+    };
+    value_mappings?: Array<ValueMapping>;
+};
+
+export type MappingResponseWritable = {
+    config?: MappingConfigWritable;
+    /**
+     * The timestamp when the mappings configuration was created.
+     * Format: date-time
+     */
+    createdAt?: string;
+    /**
+     * The data type for this mappings configuration.
+     */
+    dataType?: string;
+    /**
+     * The timestamp when the mappings configuration was soft deleted.
+     * Format: date-time
+     */
+    deletedAt?: string;
+    /**
+     * The unique identifier of the mappings configuration.
+     */
+    id?: string;
+    /**
+     * The provider type for this mappings configuration.
+     */
+    provider?: 'datadog' | 'coralogix';
+    /**
+     * The timestamp when the mappings configuration was last updated.
+     * Format: date-time
+     */
+    updatedAt?: string;
+    /**
+     * The version of this mappings configuration.
+     */
+    version?: number;
+};
+
+export type MetricMappingWritable = {
+    evidence?: MappingEvidence;
+    groundcover_metric?: string;
+    source_metric?: string;
+};
+
 /**
  * Policy defines an access control policy.
  */
@@ -9102,6 +9194,18 @@ export type PolicyWritable = {
  * PolicyWithEntityCount includes the policy details along with the count of entities it's applied to.
  */
 export type PolicyWithEntityCountWritable = PolicyWritable;
+
+export type UpdateMappingsRequestWritable = {
+    config: MappingConfigWritable;
+    /**
+     * The provider type for this mappings configuration.
+     */
+    provider: 'datadog' | 'coralogix';
+    /**
+     * The current version of the mappings configuration (for optimistic concurrency control).
+     */
+    version: number;
+};
 
 export type AgentSkillRequest2 = AgentSkillRequest;
 
