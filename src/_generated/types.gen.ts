@@ -2632,6 +2632,7 @@ export type DistributedTraceNode = {
 };
 
 export type DistributedTraceSummaryRequest = {
+    sourceType?: string;
     sources?: Array<Condition>;
     time?: string;
     traceId?: string;
