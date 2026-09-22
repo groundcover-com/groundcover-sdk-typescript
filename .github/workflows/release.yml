@@ -169,7 +169,9 @@ jobs:
           echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
           echo "current_version=$OLD_VERSION_FROM_FILE" >> "$GITHUB_OUTPUT"
 
-          npm pkg set \
+          # The generated SDK requires pnpm through devEngines, so npm rejects
+          # package-local commands with EBADDEVENGINES.
+          pnpm pkg set \
             "version=$NEW_VERSION" \
             "repository.type=git" \
             "repository.url=git+https://github.com/${GITHUB_REPOSITORY}.git"
@@ -214,7 +216,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p release-artifacts
-          npm pack --pack-destination release-artifacts
+          pnpm pack --pack-destination release-artifacts
           tar -czf release-artifacts/release-source.tar.gz \
             README.md \
             package.json \
