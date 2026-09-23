@@ -1,6 +1,6 @@
 {
   "name": "@groundcover/api-client",
-  "version": "0.20.0",
+  "version": "0.21.0",
   "description": "groundcover TypeScript API Client",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -28,7 +28,14 @@
     "deno": ">=1.37.0"
   },
   "license": "Apache-2.0",
-  "packageManager": "pnpm@10.34.5+sha512.a4ee05f2f73658255bd6a89859c065a45c28a57daefae2c893a168ee2b73168c37b91e83e57ea67654ad03f03031746430e8bce38e362e042605fb8abc80192e",
+  "packageManager": "pnpm@12.3.1+sha512.3c14c15408d1489d350f8ed7f93361d26cc707054f6849a4eea3bb7407ff4fe4564b413a1c421a773a176ab1168a8df1c7d548f2cd0dc7d344f58c4e680a5b18",
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "12.3.1",
+      "onFail": "error"
+    }
+  },
   "files": [
     "dist",
     "src"

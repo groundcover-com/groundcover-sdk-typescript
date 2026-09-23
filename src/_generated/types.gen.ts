@@ -61,6 +61,13 @@ export type AgentLlmProviderConfig = {
      */
     baseUrl?: string;
     /**
+     * Static provider configured by LLM_PROVIDER. Null when dummy_provider marks
+     * a deployment without a managed default. This is response-only metadata and
+     * is not part of AgentLLMProviderConfigRequest.
+     * Nullable: true
+     */
+    defaultProvider?: string | null;
+    /**
      * Whether an API key secret ref is configured.
      */
     isSecretRefSet?: boolean;
@@ -613,6 +620,14 @@ export type AssetMetadata = {
      * Monitor-specific: the beautified type of the monitor.
      */
     type?: string;
+    /**
+     * Dashboard-specific: Datadog-recorded views at fetch time.
+     */
+    viewCount?: number;
+    /**
+     * Dashboard-specific: new fetches use 1 (least viewed) through 5 (most viewed), based on log-scaled view counts.
+     */
+    viewRank?: number;
 };
 
 export type AssetSummaryResponseItem = {
@@ -814,6 +829,27 @@ export type BaseQuery = {
     sqlPipeline?: SqlPipeline;
 };
 
+export type BatchDashboardsError = {
+    /**
+     * Code mirrors the single-route ErrorResponse.code contract so the UI can
+     * branch the same way: set to VIEW_REVISION_CONFLICT when the item lost a
+     * write race (retry the item), empty for permanent per-item failures.
+     */
+    code?: string;
+    id?: string;
+    reason?: string;
+};
+
+export type BatchDashboardsRequest = {
+    dashboardUuids: Array<string>;
+};
+
+export type BatchDashboardsResponse = {
+    errors?: Array<BatchDashboardsError>;
+    failedCount?: number;
+    updatedCount?: number;
+};
+
 export type BatchGetMonitorsError = {
     message?: string;
     uuid?: string;
@@ -830,6 +866,24 @@ export type BatchGetMonitorsResponse = {
     monitors?: {
         [key: string]: string;
     };
+};
+
+export type BatchUpdateDashboardTagsRequest = {
+    dashboardUuids: Array<string>;
+    /**
+     * Tags to append to each dashboard. Entries are trimmed and exact-case
+     * deduplicated. At least one of tagsToAdd or tagsToRemove must be non-empty
+     * after normalization, and the two lists must not share a tag (400
+     * otherwise). 1000 is a resource-exhaustion bound, not a product tag limit:
+     * MAX_TAGS_PER_VIEW applies to each dashboard's resulting set
+     * (too_many_tags), not to the delta lists.
+     */
+    tagsToAdd?: Array<string>;
+    /**
+     * Tags to remove from each dashboard. Same normalization and disjointness
+     * rules as tagsToAdd; removing a tag a dashboard does not carry is a no-op.
+     */
+    tagsToRemove?: Array<string>;
 };
 
 export type BucketDurationSeconds = number;
@@ -3078,6 +3132,13 @@ export type Finding = {
     integration?: string;
     issue_type?: IssueType;
     label_key?: string;
+    /**
+     * LabelKeyDD is the Datadog-side name of LabelKey, set only when a mapping
+     * rule renamed it. Callers that match a finding against manifest filters —
+     * which carry Datadog names — need both, because a rename makes the two
+     * namespaces diverge and a GC-only comparison silently stops matching.
+     */
+    label_key_dd?: string;
     label_value?: string;
     label_values?: Array<string>;
     labels_used?: {
@@ -4062,6 +4123,10 @@ export type ListAssetsByTypeResponse = {
      */
     items?: Array<AssetListItem>;
     /**
+     * True when this router supports view-rank sorting for dashboards. Older routers omit it.
+     */
+    supports_view_rank_sort?: boolean;
+    /**
      * Total number of assets.
      */
     total?: number;
@@ -4401,6 +4466,13 @@ export type LogsRequestParams = {
     query?: string;
     selectors?: Array<Selector>;
     skip?: number;
+    /**
+     * SortBy is the column/attribute key to order by. Empty means order by
+     * timestamp (the historical behavior). Any root column or attribute is
+     * allowed; string columns are sorted best-effort numerically with a
+     * lexicographic fallback (see search.BuildOrderByColumn).
+     */
+    sortBy?: string;
     sortOrder?: string;
     sources?: Array<Condition>;
     /**
@@ -4667,6 +4739,11 @@ export type MemberView = {
     originId?: string;
     originType?: string;
     owner?: string;
+    /**
+     * PinOrder is the member's pin weight, higher sorts first; nil when not
+     * pinned. The client owns the numbering, so ties and gaps are possible.
+     */
+    pinOrder?: number;
     preset?: string;
     revisionNumber?: number;
     status?: string;
@@ -5043,7 +5120,8 @@ export type MigrationDataSourceItem = {
      * (AWS / GCP / Azure) this is prefixed with the cloud label and a
      * space, e.g. "AWS 123456789012", "GCP sa@my-prod.iam.gserviceaccount.com",
      * "Azure prod-azure-tenant". For non-cloud integrations it is the raw
-     * source-provider integration name (e.g. "redis", "kubelet").
+     * source-provider integration name (e.g. "redis", "kubelet"); ordinary
+     * unmapped customer metrics are grouped under "Custom Metrics".
      */
     datasourceName: string;
     /**
@@ -5063,7 +5141,8 @@ export type MigrationDataSourceItem = {
      */
     impactedMonitorsCount: number;
     /**
-     * The matching groundcover integration type, or null when unsupported or unmapped.
+     * The matching groundcover integration type. Ordinary unmapped customer
+     * metrics use "custom_metrics"; null is reserved for unsupported vendor telemetry.
      */
     integrationType?: string | null;
     /**
@@ -5490,6 +5569,11 @@ export type OpsGenieData = {
     severity_mapping?: {
         [key: string]: string;
     };
+    /**
+     * Tags added to every alert sent through this destination. Supports up to 20
+     * non-empty tags of at most 50 Unicode characters.
+     */
+    tags?: Array<string>;
 };
 
 export type OpsGenieDataResponse = {
@@ -5503,6 +5587,11 @@ export type OpsGenieDataResponse = {
     severity_mapping?: {
         [key: string]: string;
     };
+    /**
+     * Tags added to every alert sent through this destination. Supports up to 20
+     * non-empty tags of at most 50 Unicode characters.
+     */
+    tags?: Array<string>;
 };
 
 /**
@@ -5622,6 +5711,34 @@ export type PatternParamDistributionValue = {
 };
 
 /**
+ * PinViewRequest is the body of POST /api/views/{id}/pin.
+ */
+export type PinViewRequest = {
+    /**
+     * Order is this view's weight in the member's pin list: higher sorts first,
+     * so send the highest order currently pinned + 1 to put the new pin on top.
+     * Do not send the length of the visible list — archiving clears pins
+     * without packing the numbers, so a length can collide with a live pin.
+     * The client owns the numbering, so the server stores it as sent. It is
+     * int32 to match the pin_order column: a wider value would decode fine here
+     * and then fail at encode time as a 500.
+     */
+    order: number;
+};
+
+/**
+ * PinnedResource is one entry of a member's ordered pin list. PinOrder is
+ * exposed so a client that only reads this endpoint can still compute the next
+ * pin's number without also fetching the dashboards list.
+ */
+export type PinnedResource = {
+    name?: string;
+    pinOrder?: number;
+    resourceType?: string;
+    resourceUuid?: string;
+};
+
+/**
  * Policy defines an access control policy.
  */
 export type Policy = {
@@ -5695,9 +5812,13 @@ export type PositiveNoDataBucket = {
 };
 
 /**
- * PreflightReport is the top-level structured output of a preflight validation run.
+ * PreflightReportResponse is the preflight report plus backend-only counters.
  */
-export type PreflightReport = {
+export type PreflightReportResponse = {
+    /**
+     * AssetsReextracted counts assets converted before converted_queries was stored; a non-zero value means the tenant needs a reconvert.
+     */
+    assets_reextracted?: number;
     coverage_plan?: CoveragePlan;
     funnel_by_asset?: FunnelByAsset;
     /**
@@ -6659,6 +6780,20 @@ export type SessionsSummaryResponse = {
     pageLoadTime?: number;
     totalSessions?: number;
     uniqueUsers?: number;
+};
+
+/**
+ * SetMemberPinsOrderRequest is the body of PUT /api/views/member/pins/order.
+ */
+export type SetMemberPinsOrderRequest = {
+    /**
+     * Ids is the pinned resource UUIDs first-to-last, as the list should
+     * render. Send the member's whole pin list: pins left out keep their old
+     * number, and an id that is not pinned is dropped before numbering, so the
+     * survivors are numbered N..1 with no gaps. No length cap: pins are
+     * uncapped too, and the whole list must fit in one request to keep order.
+     */
+    ids: Array<string>;
 };
 
 /**
@@ -8549,6 +8684,7 @@ export type ValueItem = {
 };
 
 export type ValueMapping = {
+    evidence?: MappingEvidence;
     /**
      * GroundcoverKey is derived from SourceKey and the applicable key mapping.
      * It is returned for display but is never applied as a separate key-mapping rule.
@@ -8563,6 +8699,10 @@ export type ValueMapping = {
      * It is not supported for logs, traces, or events.
      */
     metric_pattern?: string;
+    /**
+     * Origin is server-owned normalization provenance.
+     */
+    readonly origin?: string;
     /**
      * SourceKey is the exact Datadog key whose value should be mapped.
      */
@@ -9126,7 +9266,7 @@ export type MappingConfigWritable = {
     metric_name_char_replace?: {
         [key: string]: string;
     };
-    value_mappings?: Array<ValueMapping>;
+    value_mappings?: Array<ValueMappingWritable>;
 };
 
 export type MappingResponseWritable = {
@@ -9205,6 +9345,32 @@ export type UpdateMappingsRequestWritable = {
      * The current version of the mappings configuration (for optimistic concurrency control).
      */
     version: number;
+};
+
+export type ValueMappingWritable = {
+    evidence?: MappingEvidence;
+    /**
+     * GroundcoverKey is derived from SourceKey and the applicable key mapping.
+     * It is returned for display but is never applied as a separate key-mapping rule.
+     */
+    groundcover_key?: string;
+    /**
+     * GroundcoverValue is the replacement value in the converted query.
+     */
+    groundcover_value: string;
+    /**
+     * MetricPattern optionally scopes this mapping to groundcover metric names (not source metric names).
+     * It is not supported for logs, traces, or events.
+     */
+    metric_pattern?: string;
+    /**
+     * SourceKey is the exact Datadog key whose value should be mapped.
+     */
+    source_key: string;
+    /**
+     * SourceValue is the exact Datadog value to replace.
+     */
+    source_value: string;
 };
 
 export type AgentSkillRequest2 = AgentSkillRequest;
