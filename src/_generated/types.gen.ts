@@ -362,6 +362,25 @@ export type AssertionSeverity = string;
  */
 export type AssertionSource = string;
 
+export type AssetExclusion = {
+    /**
+     * The type of the excluded asset.
+     */
+    asset_type: string;
+    /**
+     * When the asset was excluded.
+     */
+    excluded_at: string;
+    /**
+     * Email of the user who excluded the asset.
+     */
+    excluded_by: string;
+    /**
+     * The provider's asset identifier.
+     */
+    source_resource_id: string;
+};
+
 export type AssetFetchResult = {
     /**
      * Error code if the fetch failed (e.g., "RATE_LIMITED", "UNAUTHORIZED").
@@ -477,7 +496,7 @@ export type AssetInstallResult = {
     /**
      * The status of the installation.
      */
-    status: 'installed' | 'already_installed' | 'not_found' | 'not_convertible' | 'failed';
+    status: 'installed' | 'already_installed' | 'not_found' | 'not_convertible' | 'failed' | 'excluded';
 };
 
 export type AssetItem = {
@@ -539,6 +558,14 @@ export type AssetListItem = {
      * Format: date-time
      */
     discovered_at?: string;
+    /**
+     * When the asset was excluded. Absent when not excluded.
+     */
+    excluded_at?: string;
+    /**
+     * Email of the user who excluded this asset from the migration. Absent when not excluded.
+     */
+    excluded_by?: string;
     /**
      * The groundcover resource ID if installed.
      */
@@ -865,6 +892,20 @@ export type BatchGetMonitorsResponse = {
     fetchedCount?: number;
     monitors?: {
         [key: string]: string;
+    };
+};
+
+/**
+ * BatchReadMonitorsV2Response is the v2 twin of BatchGetMonitorsResponse: the
+ * stored entity (envelope + spec) per uuid instead of YAML text, with the same
+ * per-uuid partial success — a miss lands in Errors and never fails the batch.
+ */
+export type BatchReadMonitorsV2Response = {
+    errors?: Array<BatchGetMonitorsError>;
+    failedCount?: number;
+    fetchedCount?: number;
+    monitors?: {
+        [key: string]: V2MonitorEntity;
     };
 };
 
@@ -2459,6 +2500,60 @@ export type CustomRule = {
 };
 
 /**
+ * DBMMeasurementsSearchRequest queries raw statement measurement intervals.
+ *
+ * A GCQL query is required. count() counts intervals;
+ * sum(calls) counts database executions.
+ */
+export type DbmMeasurementsSearchRequest = {
+    /**
+     * End time of the request range
+     */
+    end: string;
+    query: string;
+    sources?: Array<Condition>;
+    /**
+     * Start time of the request range
+     */
+    start: string;
+};
+
+export type DbmMeasurementsSearchTimeSeriesRequest = {
+    /**
+     * Positive interval used to group measurements into time buckets.
+     */
+    bucketDuration: string;
+    /**
+     * End time of the request range
+     */
+    end: string;
+    /**
+     * Empty buckets contain null unless fillValue is supplied.
+     */
+    fillValue?: number;
+    query: string;
+    sources?: Array<Condition>;
+    /**
+     * Start time of the request range
+     */
+    start: string;
+    valueField?: string;
+};
+
+/**
+ * DDMetricInactiveBucket counts units whose only unmet metric dependency is
+ * confirmed inactive/missing in Datadog itself, tagging every metric involved
+ * (a unit can mix a confirmed-inactive metric with a self-observability one;
+ * see unitMissingMetricsAreDDInactiveOnly). Datadog itself never had data for
+ * these metrics, so groundcover correctly has none either — a genuine,
+ * successful migration outcome, not a gap to fix.
+ */
+export type DdMetricInactiveBucket = {
+    count?: number;
+    metrics?: Array<TaggedMetric>;
+};
+
+/**
  * DashboardFiltersRequest is the POST /api/dashboards/filters request body.
  */
 export type DashboardFiltersRequest = {
@@ -2925,14 +3020,21 @@ export type EventsSearchTimeSeriesRequest = {
 
 /**
  * ExcludedBucket counts units held out of the funnel because their only unmet
- * dependency is Datadog's own telemetry: a self-observability metric, or one
- * already inactive in Datadog. Migration quality has no bearing on either —
- * they were never going to return data — so they are reported separately
- * rather than weighing on supported/unsupported like a real gap would.
+ * dependency is Datadog's own telemetry: a self-observability metric. Migration
+ * quality has no bearing on it — it was never going to return data — so it is
+ * reported separately rather than weighing on supported/unsupported like a
+ * real gap would.
+ *
+ * A unit confirmed inactive in Datadog (IssueDDInactiveOrMissing) no longer
+ * lands here — see StageDDMetricInactive and DDMetricInactiveBucket, its own
+ * green success bucket under SupportedConverted. The former InactiveInDatadog
+ * field here was removed rather than kept as an always-zero counter: nothing
+ * outside this package ever read it (the funnelviz decoder only reads Total,
+ * and the CLI summary printer never printed Excluded at all), so there was no
+ * reader to preserve compatibility for.
  */
 export type ExcludedBucket = {
     datadog_self_observability?: MetricListBucket;
-    inactive_in_datadog?: MetricListBucket;
     total?: number;
 };
 
@@ -2988,6 +3090,20 @@ export type ExportCapture = {
      * Whether to capture the full page instead of the resolved element bounds.
      */
     fullscreen?: boolean;
+};
+
+/**
+ * ExportMonitorsV2Request is the POST /api/v2/monitors/export body.
+ */
+export type ExportMonitorsV2Request = {
+    /**
+     * Format names the emitted resource.
+     */
+    format: 'terraform';
+    /**
+     * UUIDs of the monitors to export, rendered in this order.
+     */
+    uuids: Array<string>;
 };
 
 /**
@@ -3159,11 +3275,21 @@ export type Finding = {
  */
 export type FunnelAssetEntry = {
     asset_id?: string;
+    /**
+     * AssetKind names the unsupported widget/monitor type when the unit never
+     * reached conversion, e.g. "heatmap" or "slo".
+     */
+    asset_kind?: string;
     asset_name?: string;
     asset_type?: string;
     metrics?: Array<string>;
     missing_keys?: Array<string>;
     missing_values?: Array<string>;
+    /**
+     * PrimaryDataset is the one missing dataset the unit is counted under, when
+     * the terminal stage is a missing-dataset gap.
+     */
+    primary_dataset?: string;
     queries?: Array<ExecutedQuery>;
     reason?: string;
     stage?: string;
@@ -3277,7 +3403,7 @@ export type GetEventsOverTimeRequest = {
     /**
      * Field to sort events by.
      */
-    sortBy: 'timestamp' | 'namespace' | 'instance' | 'object_kind' | 'firstSeen' | 'lastSeen' | 'type' | 'reason' | 'count' | 'workload' | 'cluster';
+    sortBy: 'timestamp' | 'namespace' | 'instance' | 'object_kind' | 'firstSeen' | 'lastSeen' | 'type' | 'reason' | 'message' | 'count' | 'workload' | 'cluster';
     /**
      * Sort order.
      */
@@ -3500,6 +3626,10 @@ export type InstallAssetsResponse = {
      * The number of assets that were already installed.
      */
     alreadyInstalledCount?: number;
+    /**
+     * The number of assets that were not installed because they are excluded.
+     */
+    excludedCount?: number;
     /**
      * The number of assets that failed to install.
      */
@@ -5852,6 +5982,51 @@ export type Processor = {
 };
 
 /**
+ * FlameNode contains inclusive and self weight in the selected sample unit.
+ */
+export type ProfilingFlameNode = {
+    children?: Array<ProfilingFlameNode>;
+    name?: string;
+    /**
+     * Omitted identifies a synthetic bucket, distinct from a real frame named other.
+     */
+    omitted?: boolean;
+    self?: number;
+    value?: number;
+};
+
+export type ProfilingFlamegraphResponse = {
+    filteredValue?: number;
+    period?: ProfilingPeriod;
+    profileType?: string;
+    root?: ProfilingFlameNode;
+    sampleType?: string;
+    stacks?: ProfilingStackCounts;
+    total?: number;
+    truncated?: boolean;
+    unit?: string;
+};
+
+export type ProfilingPeriod = {
+    end?: string;
+    start?: string;
+};
+
+/**
+ * StackCounts counts aggregated stacks, not samples or rendered tree nodes.
+ */
+export type ProfilingStackCounts = {
+    /**
+     * Stacks included in the tree before depth, node, and small-branch compaction.
+     */
+    returned?: number;
+    /**
+     * Matching aggregated stacks before the top-stack limit or result truncation.
+     */
+    total?: number;
+};
+
+/**
  * PromqlFunction represents a function call in a PromQL query.
  */
 export type PromqlFunction = {
@@ -6444,7 +6619,7 @@ export type SearchValuesRequest = {
     /**
      * Type of the search values
      */
-    type: 'logs' | 'traces' | 'events' | 'issues' | 'entities' | 'apm' | 'ingestion_measurements' | 'monitors' | 'aws_cur' | 'dashboards';
+    type: 'logs' | 'traces' | 'events' | 'issues' | 'entities' | 'apm' | 'ingestion_measurements' | 'dbm_measurements_statement' | 'monitors' | 'aws_cur' | 'dashboards' | 'profiling_samples';
 };
 
 export type SearchValuesRequestV2 = {
@@ -7116,6 +7291,7 @@ export type SuggestionReason = {
  */
 export type SupportedConvertedBucket = {
     data_set_available?: DataSetAvailableBucket;
+    dd_metric_inactive?: DdMetricInactiveBucket;
     missing_underlying_data_set?: MissingDataSetBucket;
     no_data_needed?: NoDataNeededBucket;
     total?: number;
@@ -7336,6 +7512,11 @@ export type TenantResponse = {
     TenantName?: string;
     Used?: number;
 };
+
+/**
+ * TerraformDocument is one HCL document.
+ */
+export type TerraformDocument = string;
 
 export type TestConnectedAppRequest = {
     /**
@@ -8554,6 +8735,14 @@ export type UsedByResponse = {
     type?: string;
 };
 
+/**
+ * Channel identifies a Slack channel.
+ */
+export type V2Channel = {
+    id?: string;
+    name?: string;
+};
+
 export type V2CreateSilenceRequest = {
     /**
      * Optional comment
@@ -8596,6 +8785,220 @@ export type V2CreateSilenceRequest = {
     type: 'one_time' | 'recurring';
 };
 
+/**
+ * DestinationApp carries at most one delivery-options block. The spec cannot
+ * check the block against the app id's integration type; the write service does.
+ */
+export type V2DestinationApp = {
+    id?: string;
+    linear?: V2LinearDeliveryOptions;
+    slack?: V2SlackDeliveryOptions;
+};
+
+/**
+ * Destinations is direct delivery. StatusFilters omitted = all.
+ */
+export type V2Destinations = {
+    apps?: Array<V2DestinationApp>;
+    statusFilters?: Array<IssueStatus>;
+};
+
+/**
+ * EvaluationInterval carries the evaluation cadence and pending window. The
+ * prom_duration tag param is the example in the error text, not a bound; the
+ * real bounds are struct-level rules.
+ */
+export type V2EvaluationInterval = {
+    /**
+     * Whole seconds, >= 1m (plus rollup floors — see the struct-level rules).
+     */
+    interval?: string;
+    /**
+     * nil = default applied on read. Whole seconds.
+     */
+    pendingFor?: string;
+};
+
+/**
+ * FiringThreshold is the static-threshold condition. Values cardinality is
+ * per-operator: 1 scalar, 2 ascending.
+ */
+export type V2FiringThreshold = {
+    operator?: string;
+    recovery?: V2RecoveryThreshold;
+    values?: Array<number>;
+};
+
+/**
+ * IssueDisplay controls how the resulting issue is rendered.
+ */
+export type V2IssueDisplay = {
+    contextLabels?: Array<string>;
+    description?: string;
+    templateLanguage?: string;
+    title?: string;
+};
+
+/**
+ * LinearDeliveryOptions requires TeamID when present. Delivery treats an
+ * omitted ResolveTicket as true, so ResolvedStatusID is required unless it is
+ * explicitly false.
+ */
+export type V2LinearDeliveryOptions = {
+    assigneeId?: string;
+    delegateId?: string;
+    labelIds?: Array<string>;
+    projectId?: string;
+    resolveTicket?: boolean;
+    resolvedStatusId?: string;
+    teamId?: string;
+};
+
+/**
+ * V2MonitorEntity is the wire shape of one monitor in the batch-read
+ * response: the envelope fields callers use, plus the spec. A type of its
+ * own, not model.Monitor — a column added to that storage row does not
+ * automatically reach this response.
+ */
+export type V2MonitorEntity = {
+    backendId?: string;
+    createdAt?: string;
+    createdByEmail?: string;
+    grafanaMonitorId?: string;
+    isProvisioned?: boolean;
+    originId?: string;
+    originType?: string;
+    spec?: V2MonitorSpec;
+    updatedAt?: string;
+    uuid?: string;
+};
+
+/**
+ * Model wraps the single query and the thresholds list, capped at one item.
+ */
+export type V2MonitorModel = {
+    query?: V2Query;
+    thresholds?: Array<V2ThresholdSpec>;
+};
+
+/**
+ * MonitorSpec is the v2 monitor document. Value = required outright.
+ * Pointer = optional: nil means the author omitted it, and that intent is
+ * PRESERVED in the stored document — defaults are applied on read, never
+ * baked in at write.
+ *
+ * The validate tags include custom ones registered only by this package.
+ * Validate through ValidateSpec — a bare validator panics.
+ */
+export type V2MonitorSpec = {
+    /**
+     * Deprecated: workflows-only. Reserved _gc_* keys are rejected.
+     */
+    annotations?: {
+        [key: string]: string;
+    };
+    /**
+     * nil = default (true) applied on read.
+     */
+    autoResolve?: boolean;
+    /**
+     * Category is free-form — the built-ins use Infrastructure|API|… but custom
+     * values exist in the fleet, so there is no enum. "" is omitted/no-data.
+     */
+    category?: string;
+    evaluationErrorState?: string;
+    evaluationInterval?: V2EvaluationInterval;
+    evaluationNoDataState?: string;
+    isPaused?: boolean;
+    issueDisplay?: V2IssueDisplay;
+    /**
+     * Reserved _gc_* keys are rejected.
+     */
+    labels?: {
+        [key: string]: string;
+    };
+    /**
+     * MeasurementType switches the timeline query builder; nil = derived on read.
+     */
+    measurementType?: string;
+    model?: V2MonitorModel;
+    name?: string;
+    notificationSettings?: V2NotificationSettings;
+    /**
+     * Severity is "" when omitted; that intent is preserved, defaults are
+     * applied on read.
+     */
+    severity?: string;
+    /**
+     * Tags are free-form; items must not be blank.
+     */
+    tags?: Array<string>;
+    team?: string;
+    /**
+     * Type is the dataType; query language and datasource are inferred from it.
+     * monitor_type defers to the registry — see registry.go for the set.
+     */
+    type?: string;
+};
+
+/**
+ * NoNotifications is the suppress-everything mode marker.
+ */
+export type V2NoNotifications = {
+    [key: string]: unknown;
+};
+
+/**
+ * NotificationRoutes is the route-based delivery mode marker.
+ */
+export type V2NotificationRoutes = {
+    [key: string]: unknown;
+};
+
+/**
+ * NotificationSettings requires exactly one mode block; there is no default.
+ *
+ * The renotification knobs apply to any mode.
+ */
+export type V2NotificationSettings = {
+    destinations?: V2Destinations;
+    disableRenotification?: boolean;
+    noNotifications?: V2NoNotifications;
+    notificationRoutes?: V2NotificationRoutes;
+    renotificationInterval?: string;
+};
+
+/**
+ * Query is the whole expression, in the language MonitorSpec.Type implies.
+ */
+export type V2Query = {
+    /**
+     * Shifts the eval window back, length unchanged. Whole seconds, at most 7d.
+     * Rejected where Rollup is.
+     */
+    evaluationDelay?: string;
+    expression?: string;
+    /**
+     * Lookback window: whole seconds, positive. Required when the type has a
+     * time axis, rejected otherwise (sql, timeless datasets).
+     */
+    rollup?: string;
+    /**
+     * Required iff metrics, rejected otherwise.
+     */
+    rollupFunction?: string;
+};
+
+/**
+ * RecoveryThreshold is the hysteresis condition; its region must not overlap
+ * the firing one. Operator is the author's choice from the recovery-capable
+ * set — required, never defaulted.
+ */
+export type V2RecoveryThreshold = {
+    operator?: string;
+    values?: Array<number>;
+};
+
 export type V2SilenceResponse = {
     active?: boolean;
     comment?: string;
@@ -8635,6 +9038,20 @@ export type V2SilencesListResponse = {
      * Page of silences matching the request.
      */
     silences?: Array<V2SilenceResponse>;
+};
+
+/**
+ * SlackDeliveryOptions requires a non-empty Channels when present.
+ */
+export type V2SlackDeliveryOptions = {
+    channels?: Array<V2Channel>;
+};
+
+/**
+ * ThresholdSpec is one condition block; Firing is its only arm today.
+ */
+export type V2ThresholdSpec = {
+    firing?: V2FiringThreshold;
 };
 
 export type V2UpdateSilenceRequest = {
@@ -12343,6 +12760,71 @@ export type UpdateMetricsPipelineConfigResponses = {
 
 export type UpdateMetricsPipelineConfigResponse = UpdateMetricsPipelineConfigResponses[keyof UpdateMetricsPipelineConfigResponses];
 
+export type GetProfilingFlamegraphData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * Start time of the request range
+         */
+        start: string;
+        /**
+         * End time of the request range
+         */
+        end: string;
+        /**
+         * GCQL filter expression pinning workload, profile_type, and sample_type.
+         */
+        query: string;
+        /**
+         * Maximum distinct stacks. Defaults to 6000 and is capped at 50000.
+         */
+        limit?: number;
+    };
+    url: '/api/profiling/flamegraph';
+};
+
+export type GetProfilingFlamegraphErrors = {
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    400: {
+        message?: string;
+    };
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    404: {
+        message?: string;
+    };
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    422: {
+        message?: string;
+    };
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    500: {
+        message?: string;
+    };
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    504: {
+        message?: string;
+    };
+};
+
+export type GetProfilingFlamegraphError = GetProfilingFlamegraphErrors[keyof GetProfilingFlamegraphErrors];
+
+export type GetProfilingFlamegraphResponses = {
+    200: ProfilingFlamegraphResponse;
+};
+
+export type GetProfilingFlamegraphResponse = GetProfilingFlamegraphResponses[keyof GetProfilingFlamegraphResponses];
+
 export type DeleteApiKeyData = {
     body?: never;
     path: {
@@ -13743,3 +14225,36 @@ export type SearchTracesError = SearchTracesErrors[keyof SearchTracesErrors];
 export type SearchTracesResponses = {
     200: unknown;
 };
+
+export type ExportMonitorsV2Data = {
+    body: ExportMonitorsV2Request;
+    path?: never;
+    query?: never;
+    url: '/api/v2/monitors/export';
+};
+
+export type ExportMonitorsV2Errors = {
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    400: {
+        message?: string;
+    };
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    500: {
+        message?: string;
+    };
+};
+
+export type ExportMonitorsV2Error = ExportMonitorsV2Errors[keyof ExportMonitorsV2Errors];
+
+export type ExportMonitorsV2Responses = {
+    /**
+     * ExportMonitorsV2ResponseWrapper is the HCL document, served as text/plain.
+     */
+    200: TerraformDocument;
+};
+
+export type ExportMonitorsV2Response = ExportMonitorsV2Responses[keyof ExportMonitorsV2Responses];
