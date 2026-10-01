@@ -3260,6 +3260,11 @@ export type Finding = {
      */
     label_key_dd?: string;
     label_value?: string;
+    /**
+     * LabelValueDD is the Datadog-side LabelValue, set only when a value
+     * mapping rule rewrote it. Rules are keyed on the Datadog value.
+     */
+    label_value_dd?: string;
     label_values?: Array<string>;
     labels_used?: {
         [key: string]: Array<string>;
