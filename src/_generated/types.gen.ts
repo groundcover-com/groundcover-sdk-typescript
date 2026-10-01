@@ -5906,6 +5906,9 @@ export type Policy = {
      */
     readonly revisionNumber?: number;
     role?: RoleMap;
+    /**
+     * Whether this policy grants access to sensitive (access-controlled) attributes.
+     */
     sensitiveAccess?: boolean;
     /**
      * Tenant associated with the policy.
@@ -9754,6 +9757,9 @@ export type PolicyWritable = {
      */
     name: string;
     role?: RoleMap;
+    /**
+     * Whether this policy grants access to sensitive (access-controlled) attributes.
+     */
     sensitiveAccess?: boolean;
 };
 
