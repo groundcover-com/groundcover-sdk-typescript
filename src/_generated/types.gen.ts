@@ -2132,6 +2132,10 @@ export type CreatePolicyRequest = {
      */
     name: string;
     role?: RoleMap;
+    /**
+     * Whether this policy grants access to sensitive (access-controlled) attributes.
+     */
+    sensitiveAccess?: boolean;
 };
 
 export type CreateRecurringSilenceRequest = {
@@ -5902,6 +5906,7 @@ export type Policy = {
      */
     readonly revisionNumber?: number;
     role?: RoleMap;
+    sensitiveAccess?: boolean;
     /**
      * Tenant associated with the policy.
      */
@@ -8612,6 +8617,10 @@ export type UpdatePolicyRequest = {
      */
     name: string;
     role?: RoleMap;
+    /**
+     * Whether this policy grants access to sensitive (access-controlled) attributes.
+     */
+    sensitiveAccess?: boolean;
 };
 
 export type UpdateRecurringSilenceRequest = {
@@ -9745,6 +9754,7 @@ export type PolicyWritable = {
      */
     name: string;
     role?: RoleMap;
+    sensitiveAccess?: boolean;
 };
 
 /**
