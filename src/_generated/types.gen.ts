@@ -425,6 +425,93 @@ export type AssetFetchResult = {
 };
 
 /**
+ * AssetFinding is one finding or warning of an evaluated asset.
+ */
+export type AssetFinding = {
+    datasource?: string;
+    id?: string;
+    message?: string;
+    /**
+     * Metric a missing key or value belongs to.
+     */
+    metric?: string;
+    source_datasource?: string;
+    /**
+     * Key a missing value belongs to.
+     */
+    source_key?: string;
+    /**
+     * Datadog-side value, when a tenant rule already rewrote it.
+     */
+    source_value?: string;
+    /**
+     * The missing or unsupported thing.
+     */
+    subject?: string;
+    suggestion?: AssetFindingSuggestion;
+    /**
+     * Datadog widget the finding belongs to. Empty for monitors and asset-level findings.
+     */
+    widget_id?: string;
+    widget_title?: string;
+};
+
+/**
+ * AssetFindingSuggestion is the top suggested fix carried on a finding.
+ */
+export type AssetFindingSuggestion = {
+    /**
+     * Set when the suggestion is already applied, automatically or by a user.
+     */
+    applied_at?: string;
+    /**
+     * How sure the suggestion is, from 0 to 1. A rule the tenant already has is 1.
+     */
+    confidence?: number;
+    /**
+     * Kind of rule the suggestion would create.
+     */
+    kind?: 'metric' | 'key' | 'value';
+    /**
+     * Top reason code behind the suggestion.
+     */
+    reason?: string;
+    /**
+     * The suggested groundcover-side value.
+     */
+    value?: string;
+};
+
+/**
+ * AssetFindingsGroups are the findings that count toward Needs Review, by type.
+ */
+export type AssetFindingsGroups = {
+    missing_key?: Array<AssetFinding>;
+    missing_metric?: Array<AssetFinding>;
+    missing_value?: Array<AssetFinding>;
+    not_supported?: Array<AssetFinding>;
+};
+
+/**
+ * AssetFindingsResponse is an asset's evaluation findings.
+ */
+export type AssetFindingsResponse = {
+    /**
+     * When the asset was last evaluated. Absent when it has not been evaluated.
+     */
+    evaluated_at?: string;
+    findings?: AssetFindingsGroups;
+    warnings?: AssetFindingsWarnings;
+};
+
+/**
+ * AssetFindingsWarnings are shown to the user but never count toward Needs Review.
+ */
+export type AssetFindingsWarnings = {
+    no_data?: Array<AssetFinding>;
+};
+
+/**
  * AssetFunnel is the wet-mode hierarchical breakdown for one asset type.
  *
  * Unit names what Total counts: monitors are counted whole, dashboards are
@@ -2894,6 +2981,78 @@ export type ErrorResponse = {
     message?: string;
     trace_id?: string;
     type?: string;
+};
+
+/**
+ * EvaluateAssetsRequest defines the request body for asset readiness evaluation.
+ */
+export type EvaluateAssetsRequest = {
+    /**
+     * Restrict evaluation to these source_resource_id values. Optional: empty means all assets.
+     */
+    asset_ids?: Array<string>;
+    /**
+     * Asset types to evaluate. Optional: defaults to ["monitors", "dashboards"].
+     */
+    asset_types?: Array<string>;
+    /**
+     * Caps the number of assets evaluated (after asset_ids filtering): converted assets first, then
+     * skipped ones fill what is left. 0 means unlimited.
+     */
+    limit?: number;
+    /**
+     * Lookback window for monitor wet queries, as a Go duration string. Optional: defaults to "168h".
+     */
+    monitor_lookback?: string;
+    /**
+     * Stores each asset's findings and evaluation. When false nothing is written and the response
+     * only reports what was evaluated. Optional: defaults to true.
+     */
+    persist?: boolean;
+    /**
+     * Executes every converted query against the tenant's data and stores the no-data
+     * warnings. Readiness does not depend on it. Optional: defaults to false.
+     */
+    wet?: boolean;
+};
+
+/**
+ * EvaluateAssetsResponse is the full response of the evaluate-assets endpoint.
+ */
+export type EvaluateAssetsResponse = {
+    assets?: Array<EvaluatedAsset>;
+    evaluated_at?: string;
+    summary?: EvaluateAssetsSummary;
+};
+
+/**
+ * EvaluateAssetsSummary is the response's top-level rollup.
+ */
+export type EvaluateAssetsSummary = {
+    assets_evaluated?: number;
+    wet?: WetSummaryCounts;
+};
+
+/**
+ * EvaluatedAsset is one asset's evaluation outcome.
+ */
+export type EvaluatedAsset = {
+    /**
+     * Of those, findings a tenant mapping rule had already resolved.
+     */
+    applied_written?: number;
+    asset_id?: string;
+    asset_type?: string;
+    /**
+     * Units the asset was checked as: 1 for a monitor, the data widgets of a dashboard.
+     */
+    evaluated_units?: number;
+    /**
+     * Findings and warnings stored for the asset. Zero when persist is false.
+     */
+    findings_written?: number;
+    name?: string;
+    source_resource_id?: string;
 };
 
 /**
@@ -7508,6 +7667,14 @@ export type TenantAiSettingsResponse = {
     effectiveAIFeaturesEnabled?: boolean;
 };
 
+export type TenantConnectorSettingsResponse = {
+    /**
+     * Whether connectors that first appear on a backend (for example in a later
+     * release) start enabled. Existing connectors are never changed.
+     */
+    newConnectorsEnabledByDefault?: boolean;
+};
+
 export type TenantInfo = {
     GrafanaOrgID?: string;
     IsPublic?: boolean;
@@ -8706,6 +8873,14 @@ export type UpdateTenantAiSettingsRequest = {
     customerAIFeaturesOptOut: boolean;
 };
 
+export type UpdateTenantConnectorSettingsRequest = {
+    /**
+     * Whether connectors that first appear on a backend (for example in a later
+     * release) start enabled. Existing connectors are never changed.
+     */
+    newConnectorsEnabledByDefault: boolean;
+};
+
 /**
  * UpdateUserCredentialRequest is the request body for updating a user-level credential.
  */
@@ -9406,6 +9581,19 @@ export type WetResult = {
  * WetStatus represents the outcome of a wet-mode query execution.
  */
 export type WetStatus = string;
+
+/**
+ * WetSummaryCounts summarizes the wet-mode execution pass, if any.
+ */
+export type WetSummaryCounts = {
+    errors?: number;
+    no_data?: number;
+    ok?: number;
+    queries_total?: number;
+    skipped?: number;
+    tested?: number;
+    unique_executed?: number;
+};
 
 /**
  * WetValidationSummary holds wet-mode validation results for the unified summary.
