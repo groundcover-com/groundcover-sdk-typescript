@@ -9736,6 +9736,7 @@ export type WorkloadsListItem = {
     memoryLimit?: number;
     memoryUsage?: number;
     namespace?: string;
+    ownerKind?: string;
     p50?: number;
     p95?: number;
     p99?: number;
