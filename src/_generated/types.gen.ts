@@ -9743,6 +9743,7 @@ export type WorkloadsListItem = {
     ready?: boolean;
     resourceVersion?: string;
     rps?: number;
+    runningPodsCount?: number;
     uid?: string;
     workload?: string;
 };
