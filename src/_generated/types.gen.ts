@@ -418,6 +418,30 @@ export type AssertionSeverity = string;
  */
 export type AssertionSource = string;
 
+export type AssetDataSource = {
+    /**
+     * When the user connected the data source. Absent until then.
+     * Format: date-time
+     */
+    connected_at?: string;
+    /**
+     * The data source ID, as listed by the data sources endpoint.
+     */
+    id?: string;
+    /**
+     * The integration that provides the data.
+     */
+    integration_type?: string;
+    /**
+     * The data source name.
+     */
+    name?: string;
+    /**
+     * Whether live data was observed: todo (none), partial or active.
+     */
+    status?: 'todo' | 'partial' | 'active';
+};
+
 export type AssetExclusion = {
     /**
      * The type of the excluded asset.
@@ -697,10 +721,25 @@ export type AssetListItem = {
      */
     converted_payload?: string;
     /**
+     * Data sources this asset depends on. A todo one that is not connected puts the
+     * asset in missing_data; a connected todo one keeps it in needs_review.
+     * Populated by the list endpoint for monitors and dashboards.
+     */
+    data_sources?: Array<AssetDataSource>;
+    /**
      * The timestamp when this asset was discovered.
      * Format: date-time
      */
     discovered_at?: string;
+    /**
+     * When the current conversion was last evaluated. Absent when it has not been.
+     * Format: date-time
+     */
+    evaluated_at?: string;
+    /**
+     * Number of units (data widgets for a dashboard, 1 for a monitor) the last evaluation checked.
+     */
+    evaluated_units?: number;
     /**
      * When the asset was excluded. Absent when not excluded.
      */
@@ -719,11 +758,6 @@ export type AssetListItem = {
     install_state?: string;
     metadata?: AssetMetadata;
     /**
-     * Names of data sources referenced by this asset that are not yet migrated.
-     * Populated for monitors and dashboards only. Matches DataSourceItem.DatasourceName values.
-     */
-    missing_data_sources?: Array<string>;
-    /**
      * Metric names used by this data source that are not currently live in groundcover.
      * Populated for synthesized metrics items returned with dataSourceId. Null means
      * coverage has not been computed because the migration predates this field.
@@ -740,11 +774,21 @@ export type AssetListItem = {
      */
     name?: string;
     /**
+     * Number of units with an open finding (widgets to review). Populated by the list endpoint.
+     */
+    open_units?: number;
+    /**
      * The verbatim provider object payload.
      */
     raw_payload?: {
         [key: string]: unknown;
     };
+    /**
+     * Where the asset stands on the way to migration, derived at read time from
+     * conversion, install state, data sources and evaluation.
+     * Populated by the list endpoint.
+     */
+    readiness?: 'unsupported' | 'migrated' | 'missing_data' | 'not_evaluated' | 'needs_review' | 'ready';
     /**
      * The timestamp when the asset was created in the source provider.
      * Format: date-time
@@ -813,6 +857,12 @@ export type AssetSummaryResponseItem = {
      * Total number of assets pending conversion.
      */
     pending_total?: number;
+    /**
+     * Asset counts per readiness bucket, split by exclusion. Every bucket is present.
+     */
+    readiness?: {
+        [key: string]: ReadinessCount;
+    };
     /**
      * Total number of unique assets from the source.
      */
@@ -3031,7 +3081,7 @@ export type EnvType = string;
  * (message + machine-readable code + trace_id, plus optional metadata).
  */
 export type ErrorResponse = {
-    code?: 'EXCEEDED_MAX_ROWS_TO_GROUP_BY' | 'MONITOR_EVAL_FAILED' | 'MONITOR_VALIDATION_FAILED' | 'MONITOR_DUPLICATE_TITLE' | 'CONNECTED_APP_IN_USE' | 'VIEW_REVISION_CONFLICT' | 'CONNECTED_APP_ORPHANED_SECRET';
+    code?: 'EXCEEDED_MAX_ROWS_TO_GROUP_BY' | 'MONITOR_EVAL_FAILED' | 'MONITOR_VALIDATION_FAILED' | 'MONITOR_DUPLICATE_TITLE' | 'CONNECTED_APP_IN_USE' | 'VIEW_REVISION_CONFLICT' | 'CONNECTED_APP_ORPHANED_SECRET' | 'INVALID_ARGUMENT';
     details?: unknown;
     docs_url?: string;
     message?: string;
@@ -3947,6 +3997,28 @@ export type Integrations = {
     service_account_subject?: string;
 };
 
+/**
+ * Investigation is one node of an investigation tree; a root has no parent and is always a question.
+ */
+export type Investigation = {
+    createdAt: string;
+    id: string;
+    kind: 'question' | 'hypothesis';
+    /**
+     * Parent node; omitted for roots.
+     */
+    parentId?: string;
+    /**
+     * Root of the tree; equals id for roots.
+     */
+    rootId: string;
+    /**
+     * The question, or the claim to test.
+     */
+    statement: string;
+    status: 'open' | 'resolved' | 'refuted' | 'stopped';
+};
+
 export type InviteRequest = {
     members?: Array<InviteeDetails>;
 };
@@ -4514,6 +4586,17 @@ export type ListIngestionKeysRequest = {
      * Type of the ingestion key to filter by
      */
     type?: string;
+};
+
+export type ListInvestigationsResponse = {
+    /**
+     * Whether this is the last page.
+     */
+    done: boolean;
+    /**
+     * Page of root investigations, newest first.
+     */
+    investigations: Array<Investigation>;
 };
 
 export type ListMigrationCloudIntegrationsResponse = {
@@ -5470,6 +5553,12 @@ export type MigrationCloudIntegrationItem = {
 
 export type MigrationDataSourceItem = {
     /**
+     * When the user connected this data source from the migrations UI. Absent
+     * until then. A connected source with status todo is waiting for data.
+     * Format: date-time
+     */
+    connectedAt?: string;
+    /**
      * The data source display name. For cloud integrations
      * (AWS / GCP / Azure) this is prefixed with the cloud label and a
      * space, e.g. "AWS 123456789012", "GCP sa@my-prod.iam.gserviceaccount.com",
@@ -6392,6 +6481,17 @@ export type RbacTenantSettings = {
      * DefaultRole is the old settings, If DefaultPolicyUUID is not empty, this field will be ignored
      */
     defaultRole?: string;
+};
+
+export type ReadinessCount = {
+    /**
+     * Assets in this bucket that are excluded.
+     */
+    excluded?: number;
+    /**
+     * Assets in this bucket that are not excluded.
+     */
+    included?: number;
 };
 
 export type RecurringSilenceResponse = {
