@@ -21,6 +21,19 @@ export type AdvancedDataScope = {
     workloads?: Group;
 };
 
+export type AgentChatModel = {
+    capabilities: AgentModelCapabilities;
+    displayName: string;
+    isDefault: boolean;
+    modelId: string;
+    provider: string;
+    providerId: string;
+};
+
+export type AgentChatModels = {
+    models: Array<AgentChatModel>;
+};
+
 /**
  * AgentCustomInstructions is the custom instructions payload returned by
  * agent-service for reads and upserts.
@@ -71,10 +84,13 @@ export type AgentLlmProviderConfig = {
      * Whether an API key secret ref is configured.
      */
     isSecretRefSet?: boolean;
+    modelId?: string;
+    primaryProviderId?: string;
     /**
      * The configured provider ("" when unset).
      */
     provider?: string;
+    providers?: Array<AgentLlmProviderEntry>;
     /**
      * When the config was last updated (ISO-8601), if set.
      */
@@ -99,15 +115,55 @@ export type AgentLlmProviderConfigRequest = {
      * anthropic_compatible_endpoint; enforced by agent-service validation.
      */
     baseUrl?: string;
+    modelId?: string;
+    primaryProviderId?: string;
     /**
-     * The LLM provider to use (anthropic, anthropic_compatible_endpoint, azure, vertex, bedrock).
+     * Legacy single-provider selection. Use providers and primaryProviderId for multiple configurations.
      */
-    provider: string;
+    provider?: string;
+    providers?: Array<AgentLlmProviderEntryRequest>;
     /**
      * Fleet Manager secret ref (secretRef::store::<id>) for the provider's API key.
      * Omit for providers that authenticate via ambient identity.
      */
     secretRef?: string;
+};
+
+export type AgentLlmProviderEntry = {
+    baseUrl?: string;
+    enabledModels?: Array<string>;
+    id?: string;
+    isSecretRefSet?: boolean;
+    modelId?: string;
+    provider?: string;
+    /**
+     * Enabled models for which the cost calculator has no model-specific pricing.
+     */
+    unpricedModels?: Array<string>;
+};
+
+export type AgentLlmProviderEntryRequest = {
+    baseUrl?: string;
+    /**
+     * Enabled model IDs for this provider. The primary modelId must be included.
+     * Omission preserves existing models and enables modelId for legacy clients.
+     */
+    enabledModels?: Array<string>;
+    id: string;
+    /**
+     * Provider-specific model or deployment ID; custom IDs are validated by the provider.
+     */
+    modelId: string;
+    /**
+     * Hosting service or compatible endpoint: anthropic, anthropic_compatible_endpoint, openai, openai_compatible_endpoint, bedrock, vertex, or azure.
+     */
+    provider: string;
+    secretRef?: string;
+};
+
+export type AgentModelCapabilities = {
+    defaultEffort?: string;
+    effortLevels: Array<string>;
 };
 
 /**
@@ -5671,6 +5727,21 @@ export type MonitorVariable = {
     prefix?: string;
     search?: VariableSearch;
     storage?: string;
+};
+
+export type MonitorsSearchRequest = {
+    /**
+     * End time of the request range
+     */
+    end: string;
+    /**
+     * GCQL query over `_from monitors` (the default domain here)
+     */
+    query: string;
+    /**
+     * Start time of the request range
+     */
+    start: string;
 };
 
 /**
