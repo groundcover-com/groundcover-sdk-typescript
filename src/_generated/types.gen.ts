@@ -5818,6 +5818,31 @@ export type MonitorVariable = {
     storage?: string;
 };
 
+export type MonitorsCatalogItem = {
+    catalogId?: string;
+    category?: string;
+    conditionDescription?: string;
+    createdAt?: string;
+    description?: string;
+    /**
+     * Integration is the technology family, or null for native monitors.
+     * Same shape as the dashboards catalog so both feed one card component.
+     */
+    integration?: string | null;
+    lastUpdated?: string;
+    monitorType?: string;
+    tags?: Array<string>;
+    title?: string;
+    version?: number;
+};
+
+export type MonitorsCatalogItemByPack = {
+    description?: string;
+    displayName?: string;
+    id?: string;
+    monitors?: Array<MonitorsCatalogItem>;
+};
+
 export type MonitorsSearchRequest = {
     /**
      * End time of the request range
