@@ -1,6 +1,6 @@
 {
   "name": "@groundcover/api-client",
-  "version": "0.31.0",
+  "version": "0.32.0",
   "description": "groundcover TypeScript API Client",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

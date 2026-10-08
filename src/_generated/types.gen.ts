@@ -1941,6 +1941,7 @@ export type ConversionWarning = {
     severity?: Severity;
     suggestions?: Array<string>;
     type?: ConversionWarningType;
+    unsupported?: UnsupportedScope;
 };
 
 /**
@@ -8803,6 +8804,11 @@ export type UnsupportedBreakdown = {
         [key: string]: UnsupportedAssetTypeBreakdown;
     };
 };
+
+/**
+ * UnsupportedScope is what a converter decided it could not migrate.
+ */
+export type UnsupportedScope = string;
 
 /**
  * UpdateConnectedAppRequest is the request body for updating an existing connected app.
