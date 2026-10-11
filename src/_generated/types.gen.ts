@@ -1447,7 +1447,6 @@ export type ClustersListResult = {
 export type Column = {
     additionalFilter?: string;
     autoComplete?: boolean;
-    filterKeys?: Array<string>;
     isNullable?: boolean;
     key?: string;
     origin?: string;
@@ -1460,7 +1459,6 @@ export type Column = {
 export type Condition = {
     additionalFilter?: string;
     autoComplete?: boolean;
-    filterKeys?: Array<string>;
     filters?: Array<Filter>;
     isNullable?: boolean;
     key?: string;
@@ -7094,7 +7092,6 @@ export type Selector = {
     alias?: string;
     autoComplete?: boolean;
     conditionFilter?: Group;
-    filterKeys?: Array<string>;
     isNullable?: boolean;
     key?: string;
     origin?: string;
