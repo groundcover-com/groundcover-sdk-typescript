@@ -9249,10 +9249,10 @@ export type V2LinearDeliveryOptions = {
 };
 
 /**
- * V2MonitorEntity is the wire shape of one monitor in the batch-read
- * response: the envelope fields callers use, plus the spec. A type of its
- * own, not model.Monitor — a column added to that storage row does not
- * automatically reach this response.
+ * MonitorEntity is the wire shape of one monitor in the router's v2 batch-read
+ * response: the envelope fields callers use, plus the spec. A type of its own,
+ * not Monitor — a column added to that storage row does not automatically
+ * reach this response.
  */
 export type V2MonitorEntity = {
     backendId?: string;
