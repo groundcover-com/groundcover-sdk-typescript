@@ -7114,6 +7114,15 @@ export type ServiceAccountPolicyRef = {
 
 export type ServiceAccountsWithPolicy = {
     /**
+     * Email of the user who created the service account.
+     */
+    createdBy?: string;
+    /**
+     * Timestamp when the service account was created.
+     * Format: date-time
+     */
+    creationDate?: string;
+    /**
      * Indicates if the service account has been marked for deletion.
      */
     deleted?: boolean;
