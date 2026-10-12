@@ -2190,6 +2190,13 @@ export type CreateIngestionKeyRequest = {
     type: 'sensor' | 'rum' | 'thirdParty';
 };
 
+export type CreateInvestigationRequest = {
+    scope?: Array<InvestigationScopeEntry>;
+    source?: InvestigationSource;
+    statement: string;
+    timeRange?: InvestigationTimeRange;
+};
+
 export type CreateMappingsRequest = {
     config: MappingConfig;
     /**
@@ -3704,6 +3711,11 @@ export type GetEventsOverTimeResponse = {
     warningIndicator?: boolean;
 };
 
+export type GetInvestigationResponse = {
+    children: Array<Investigation>;
+    investigation: Investigation;
+};
+
 /**
  * GetTagsRequest is the /api/tags request body: optional prefix and limit.
  */
@@ -4000,9 +4012,12 @@ export type Integrations = {
  * Investigation is one node of an investigation tree; a root has no parent and is always a question.
  */
 export type Investigation = {
+    closedAt?: string;
     createdAt: string;
+    createdBy: InvestigationAuthor;
     id: string;
     kind: 'question' | 'hypothesis';
+    outcome?: string;
     /**
      * Parent node; omitted for roots.
      */
@@ -4011,11 +4026,41 @@ export type Investigation = {
      * Root of the tree; equals id for roots.
      */
     rootId: string;
+    scope?: Array<InvestigationScopeEntry>;
+    source?: InvestigationSource;
     /**
      * The question, or the claim to test.
      */
     statement: string;
     status: 'open' | 'resolved' | 'refuted' | 'stopped';
+    timeRange?: InvestigationTimeRange;
+};
+
+export type InvestigationAuthor = {
+    agentInstanceId?: string;
+    id: string;
+    name: string;
+    type: 'user' | 'service_account' | 'system' | 'agent';
+};
+
+export type InvestigationScopeEntry = {
+    key: string;
+    value: string;
+};
+
+export type InvestigationSource = {
+    /**
+     * JSON object whose serialized representation is at most 8192 bytes.
+     */
+    ref?: {
+        [key: string]: unknown;
+    };
+    type: string;
+};
+
+export type InvestigationTimeRange = {
+    from?: string;
+    to?: string;
 };
 
 export type InviteRequest = {
