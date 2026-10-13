@@ -5824,6 +5824,14 @@ export type MonitorOptions = {
 };
 
 /**
+ * MonitorRevisionsResponse is a page of revisions, newest first.
+ */
+export type MonitorRevisionsResponse = {
+    hasNextPage?: boolean;
+    revisions?: Array<RevisionEntry>;
+};
+
+/**
  * MonitorState represents the state of a monitor
  */
 export type MonitorState = {
@@ -6650,6 +6658,17 @@ export type Request = {
     tcp?: TcpRequest;
     udp?: UdpRequest;
     websocket?: WebsocketRequest;
+};
+
+/**
+ * RevisionEntry is one recorded write as the history read returns it: the spec
+ * after it, who made it and the stamp it set.
+ */
+export type RevisionEntry = {
+    operation?: string;
+    spec?: V2MonitorSpec;
+    updatedAt?: string;
+    updatedBy?: string;
 };
 
 /**
