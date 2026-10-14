@@ -2171,6 +2171,36 @@ export type CreateDataIntegrationConfigRequest = {
     };
 };
 
+/**
+ * CreateFindingRequest uses signal and queryLanguage to identify the MCP tool for retrieving evidence.
+ *
+ * Queryable signals require a query: metrics uses metricsql, all other queryable signals use gcql.
+ * Link and other findings require a URL and do not accept queries. A queryable finding may include a supplemental URL.
+ */
+export type CreateFindingRequest = {
+    details: string;
+    query?: string;
+    queryLanguage?: 'gcql' | 'metricsql';
+    /**
+     * logs SignalLogs
+     * traces SignalTraces
+     * metrics SignalMetrics
+     * events SignalEvents
+     * entities SignalEntities
+     * issues SignalIssues
+     * monitors SignalMonitors
+     * k8s SignalK8s
+     * profiling SignalProfiling
+     * rum SignalRUM
+     * db_measurements SignalDBMeasurements
+     * link SignalLink
+     * other SignalOther
+     */
+    signal: 'logs' | 'traces' | 'metrics' | 'events' | 'entities' | 'issues' | 'monitors' | 'k8s' | 'profiling' | 'rum' | 'db_measurements' | 'link' | 'other';
+    timeRange?: InvestigationTimeRange;
+    url?: string;
+};
+
 export type CreateIngestionKeyRequest = {
     /**
      * The desired name for the ingestion key.
@@ -3549,6 +3579,12 @@ export type Finding = {
     widget_title?: string;
 };
 
+export type FindingRetraction = {
+    at?: string;
+    by?: InvestigationAuthor;
+    reason?: string;
+};
+
 /**
  * FunnelAssetEntry maps one asset — or one dashboard widget — to the funnel stage
  * it reached, with the queries that were executed as evidence.
@@ -3713,6 +3749,10 @@ export type GetEventsOverTimeResponse = {
 
 export type GetInvestigationResponse = {
     children: Array<Investigation>;
+    /**
+     * Findings belonging to this node, included for all callers; an empty collection is [].
+     */
+    findings: Array<InvestigationFinding>;
     investigation: Investigation;
 };
 
@@ -4041,6 +4081,35 @@ export type InvestigationAuthor = {
     id: string;
     name: string;
     type: 'user' | 'service_account' | 'system' | 'agent';
+};
+
+export type InvestigationFinding = {
+    createdAt?: string;
+    createdBy?: InvestigationAuthor;
+    details: string;
+    id?: string;
+    investigationId?: string;
+    query?: string;
+    queryLanguage?: 'gcql' | 'metricsql';
+    retracted?: FindingRetraction;
+    /**
+     * logs SignalLogs
+     * traces SignalTraces
+     * metrics SignalMetrics
+     * events SignalEvents
+     * entities SignalEntities
+     * issues SignalIssues
+     * monitors SignalMonitors
+     * k8s SignalK8s
+     * profiling SignalProfiling
+     * rum SignalRUM
+     * db_measurements SignalDBMeasurements
+     * link SignalLink
+     * other SignalOther
+     */
+    signal: 'logs' | 'traces' | 'metrics' | 'events' | 'entities' | 'issues' | 'monitors' | 'k8s' | 'profiling' | 'rum' | 'db_measurements' | 'link' | 'other';
+    timeRange?: InvestigationTimeRange;
+    url?: string;
 };
 
 export type InvestigationScopeEntry = {
@@ -6658,6 +6727,10 @@ export type Request = {
     tcp?: TcpRequest;
     udp?: UdpRequest;
     websocket?: WebsocketRequest;
+};
+
+export type RetractFindingRequest = {
+    reason: string;
 };
 
 /**
