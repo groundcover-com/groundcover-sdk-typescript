@@ -3136,7 +3136,7 @@ export type EnvType = string;
  * (message + machine-readable code + trace_id, plus optional metadata).
  */
 export type ErrorResponse = {
-    code?: 'EXCEEDED_MAX_ROWS_TO_GROUP_BY' | 'MONITOR_EVAL_FAILED' | 'MONITOR_VALIDATION_FAILED' | 'MONITOR_DUPLICATE_TITLE' | 'CONNECTED_APP_IN_USE' | 'VIEW_REVISION_CONFLICT' | 'CONNECTED_APP_ORPHANED_SECRET' | 'INVALID_ARGUMENT';
+    code?: 'EXCEEDED_MAX_ROWS_TO_GROUP_BY' | 'MONITOR_EVAL_FAILED' | 'MONITOR_VALIDATION_FAILED' | 'MONITOR_DUPLICATE_TITLE' | 'CONNECTED_APP_IN_USE' | 'VIEW_REVISION_CONFLICT' | 'CONNECTED_APP_ORPHANED_SECRET' | 'INVALID_ARGUMENT' | 'INVESTIGATION_EXISTS';
     details?: unknown;
     docs_url?: string;
     message?: string;
@@ -4201,6 +4201,23 @@ export type InvestigationEvidence = {
     relation: 'supports' | 'contradicts';
 };
 
+/**
+ * InvestigationExistsDetails is the details of a 409 INVESTIGATION_EXISTS: the root to join.
+ */
+export type InvestigationExistsDetails = {
+    investigationId: string;
+};
+
+/**
+ * InvestigationExistsError is the 409 body of createInvestigation: the issue already has an open root to join.
+ */
+export type InvestigationExistsError = {
+    code: 'INVESTIGATION_EXISTS';
+    details: InvestigationExistsDetails;
+    message: string;
+    trace_id?: string;
+};
+
 export type InvestigationFinding = {
     createdAt?: string;
     createdBy?: InvestigationAuthor;
@@ -4295,14 +4312,19 @@ export type InvestigationScopeEntry = {
     value: string;
 };
 
+/**
+ * Source is what opened a root investigation. At most one root per issue is open at a time.
+ */
 export type InvestigationSource = {
+    ref: InvestigationSourceRef;
+    type: 'issue';
+};
+
+export type InvestigationSourceRef = {
     /**
-     * JSON object whose serialized representation is at most 8192 bytes.
+     * The monitor issue's fingerprint.
      */
-    ref?: {
-        [key: string]: unknown;
-    };
-    type: string;
+    issueFingerprint: string;
 };
 
 export type InvestigationTimeRange = {
