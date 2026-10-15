@@ -3323,6 +3323,18 @@ export type EventsSearchTimeSeriesRequest = {
     valueField?: string;
 };
 
+export type EvidenceRequest = {
+    /**
+     * A finding anywhere in the same investigation tree.
+     */
+    findingId: string;
+    /**
+     * supports RelationSupports
+     * contradicts RelationContradicts
+     */
+    relation: 'supports' | 'contradicts';
+};
+
 /**
  * ExcludedBucket counts units held out of the funnel because their only unmet
  * dependency is Datadog's own telemetry: a self-observability metric. Migration
@@ -3748,6 +3760,10 @@ export type GetEventsOverTimeResponse = {
 };
 
 export type GetInvestigationResponse = {
+    /**
+     * Each participant's assessment on this node, its evidence embedding the cited findings; an empty collection is [].
+     */
+    assessments: Array<InvestigationAssessment>;
     children: Array<Investigation>;
     /**
      * Tree events after afterTimestamp, or all events when it is omitted.
@@ -4103,6 +4119,30 @@ export type Investigation = {
     timeRange?: InvestigationTimeRange;
 };
 
+/**
+ * Assessment is one participant's current conclusion on a node.
+ */
+export type InvestigationAssessment = {
+    author: InvestigationAuthor;
+    details: string;
+    evidence: Array<InvestigationEvidence>;
+    id: string;
+    investigationId: string;
+    /**
+     * Starts at 1; every update adds one.
+     */
+    revision: number;
+    updatedAt: string;
+    /**
+     * Set when a conclusion on the node is approved; an update resets it to open.
+     * open VerdictOpen
+     * correct VerdictCorrect
+     * incorrect VerdictIncorrect
+     */
+    verdict: 'open' | 'correct' | 'incorrect';
+    verdictReason?: string;
+};
+
 export type InvestigationAuthor = {
     agentInstanceId?: string;
     id: string;
@@ -4127,6 +4167,15 @@ export type InvestigationEvent = {
         [key: string]: unknown;
     };
     type: 'investigation.opened' | 'investigation.closed' | 'participant.joined' | 'finding.created' | 'finding.retracted' | 'assessment.updated' | 'assessment.judged' | 'proposal.created' | 'proposal.deferred' | 'proposal.approved' | 'proposal.rejected' | 'proposal.superseded';
+};
+
+export type InvestigationEvidence = {
+    finding: InvestigationFinding;
+    /**
+     * supports RelationSupports
+     * contradicts RelationContradicts
+     */
+    relation: 'supports' | 'contradicts';
 };
 
 export type InvestigationFinding = {
@@ -4156,6 +4205,14 @@ export type InvestigationFinding = {
     signal: 'logs' | 'traces' | 'metrics' | 'events' | 'entities' | 'issues' | 'monitors' | 'k8s' | 'profiling' | 'rum' | 'db_measurements' | 'link' | 'other';
     timeRange?: InvestigationTimeRange;
     url?: string;
+};
+
+/**
+ * InvalidCitation is one entry of the error details when cited findings can't be used.
+ */
+export type InvestigationInvalidCitation = {
+    code: 'NOT_FOUND' | 'FINDING_RETRACTED';
+    findingId: string;
 };
 
 export type InvestigationScopeEntry = {
@@ -7525,6 +7582,17 @@ export type SessionsSummaryResponse = {
     pageLoadTime?: number;
     totalSessions?: number;
     uniqueUsers?: number;
+};
+
+/**
+ * SetAssessmentRequest replaces the caller's assessment on the node.
+ */
+export type SetAssessmentRequest = {
+    details: string;
+    /**
+     * The full set of citations, each finding at most once; [] means none.
+     */
+    evidence: Array<EvidenceRequest>;
 };
 
 /**
