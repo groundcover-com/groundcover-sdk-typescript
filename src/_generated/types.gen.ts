@@ -2367,6 +2367,25 @@ export type CreatePolicyRequest = {
     sensitiveAccess?: boolean;
 };
 
+/**
+ * CreateProposalRequest submits a decision for later approval or rejection.
+ */
+export type CreateProposalRequest = {
+    child?: InvestigationProposalChild;
+    details: string;
+    /**
+     * Findings from the same tree; omitted means none. Each finding may appear once.
+     */
+    evidence?: Array<EvidenceRequest>;
+    /**
+     * create_child ProposalCreateChild
+     * resolve ProposalResolve
+     * refute ProposalRefute
+     * stop ProposalStop
+     */
+    type: 'create_child' | 'resolve' | 'refute' | 'stop';
+};
+
 export type CreateRecurringSilenceRequest = {
     /**
      * Optional comment for the recurring silence
@@ -3778,6 +3797,10 @@ export type GetInvestigationResponse = {
      * Timestamp of the latest tree event in this snapshot.
      */
     nextAfterTimestamp?: string;
+    /**
+     * Pending and decided proposals on this node; an empty collection is [].
+     */
+    proposals: Array<InvestigationProposal>;
 };
 
 /**
@@ -4213,6 +4236,58 @@ export type InvestigationFinding = {
 export type InvestigationInvalidCitation = {
     code: 'NOT_FOUND' | 'FINDING_RETRACTED';
     findingId: string;
+};
+
+/**
+ * Proposal is an immutable request for a decision on one investigation node.
+ */
+export type InvestigationProposal = {
+    /**
+     * Open descendants blocking a pending resolve or refute, computed at read time.
+     */
+    blockedBy?: Array<string>;
+    child?: InvestigationProposalChild;
+    childId?: string;
+    createdAt: string;
+    createdBy: InvestigationAuthor;
+    decision?: InvestigationProposalDecision;
+    details: string;
+    evidence: Array<InvestigationEvidence>;
+    id: string;
+    investigationId: string;
+    /**
+     * pending ProposalPending
+     * approved ProposalApproved
+     * rejected ProposalRejected
+     * superseded ProposalSuperseded
+     */
+    status: 'pending' | 'approved' | 'rejected' | 'superseded';
+    /**
+     * create_child ProposalCreateChild
+     * resolve ProposalResolve
+     * refute ProposalRefute
+     * stop ProposalStop
+     */
+    type: 'create_child' | 'resolve' | 'refute' | 'stop';
+};
+
+/**
+ * ProposalChild describes a node to create if the proposal is approved.
+ */
+export type InvestigationProposalChild = {
+    kind: 'question' | 'hypothesis';
+    scope?: Array<InvestigationScopeEntry>;
+    statement: string;
+    timeRange?: InvestigationTimeRange;
+};
+
+/**
+ * ProposalDecision records who decided a proposal and why.
+ */
+export type InvestigationProposalDecision = {
+    at: string;
+    by: InvestigationAuthor;
+    reason: string;
 };
 
 export type InvestigationScopeEntry = {
@@ -8142,6 +8217,7 @@ export type TenantConnectorSettingsResponse = {
 };
 
 export type TenantInfo = {
+    GrafanaEnabled?: boolean;
     GrafanaOrgID?: string;
     IsPublic?: boolean;
     OrgName?: string;
