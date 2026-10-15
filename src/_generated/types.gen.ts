@@ -3750,10 +3750,37 @@ export type GetEventsOverTimeResponse = {
 export type GetInvestigationResponse = {
     children: Array<Investigation>;
     /**
+     * Tree events after afterTimestamp, or all events when it is omitted.
+     */
+    eventsAfter: number;
+    /**
      * Findings belonging to this node, included for all callers; an empty collection is [].
      */
     findings: Array<InvestigationFinding>;
     investigation: Investigation;
+    /**
+     * Timestamp of the latest tree event in this snapshot.
+     */
+    nextAfterTimestamp?: string;
+};
+
+/**
+ * GetInvestigationTreeResponse is one consistent snapshot of the complete tree.
+ */
+export type GetInvestigationTreeResponse = {
+    /**
+     * Tree events after afterTimestamp, or all events when it is omitted.
+     */
+    eventsAfter: number;
+    /**
+     * Timestamp of the latest event in this snapshot; omitted when no event exists.
+     */
+    nextAfterTimestamp?: string;
+    /**
+     * Root first, then remaining nodes by createdAt and id.
+     */
+    nodes: Array<Investigation>;
+    participants: Array<InvestigationAuthor>;
 };
 
 /**
@@ -4081,6 +4108,25 @@ export type InvestigationAuthor = {
     id: string;
     name: string;
     type: 'user' | 'service_account' | 'system' | 'agent';
+};
+
+/**
+ * Event is an attributable change in an investigation tree.
+ */
+export type InvestigationEvent = {
+    author: InvestigationAuthor;
+    createdAt: string;
+    entityId: string;
+    entityType: 'investigation' | 'participant' | 'finding' | 'assessment' | 'proposal' | 'review';
+    id: string;
+    investigationId: string;
+    /**
+     * Versioned object with v: 1.
+     */
+    payload: {
+        [key: string]: unknown;
+    };
+    type: 'investigation.opened' | 'investigation.closed' | 'participant.joined' | 'finding.created' | 'finding.retracted' | 'assessment.updated' | 'assessment.judged' | 'proposal.created' | 'proposal.deferred' | 'proposal.approved' | 'proposal.rejected' | 'proposal.superseded';
 };
 
 export type InvestigationFinding = {
@@ -4699,6 +4745,18 @@ export type ListIngestionKeysRequest = {
      * Type of the ingestion key to filter by
      */
     type?: string;
+};
+
+/**
+ * ListInvestigationEventsResponse is a page ordered by event timestamp.
+ */
+export type ListInvestigationEventsResponse = {
+    done: boolean;
+    events: Array<InvestigationEvent>;
+    /**
+     * Last returned event's timestamp; an empty page retains afterTimestamp.
+     */
+    nextAfterTimestamp?: string;
 };
 
 export type ListInvestigationsResponse = {
