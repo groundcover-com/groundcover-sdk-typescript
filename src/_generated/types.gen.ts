@@ -418,6 +418,17 @@ export type AssertionSeverity = string;
  */
 export type AssertionSource = string;
 
+export type AssessmentVerdictRequest = {
+    assessmentId: string;
+    reason: string;
+    /**
+     * open VerdictOpen
+     * correct VerdictCorrect
+     * incorrect VerdictIncorrect
+     */
+    verdict: 'correct' | 'incorrect';
+};
+
 export type AssetDataSource = {
     /**
      * When the user connected the data source. Absent until then.
@@ -2930,6 +2941,17 @@ export type DatasourceKeyGap = {
     keys?: Array<string>;
 };
 
+/**
+ * DecideProposalRequest approves or rejects a pending proposal.
+ */
+export type DecideProposalRequest = {
+    /**
+     * Each assessment may appear once. Approvals judge assessments only for resolve/refute.
+     */
+    assessmentVerdicts?: Array<AssessmentVerdictRequest>;
+    reason: string;
+};
+
 export type DeleteIngestionKeyRequest = {
     /**
      * Name of the ingestion key to delete
@@ -4149,6 +4171,7 @@ export type InvestigationAssessment = {
     author: InvestigationAuthor;
     details: string;
     evidence: Array<InvestigationEvidence>;
+    feedback?: InvestigationAssessmentFeedback;
     id: string;
     investigationId: string;
     /**
@@ -4164,6 +4187,20 @@ export type InvestigationAssessment = {
      */
     verdict: 'open' | 'correct' | 'incorrect';
     verdictReason?: string;
+};
+
+/**
+ * AssessmentFeedback is provisional feedback from a rejected proposal.
+ */
+export type InvestigationAssessmentFeedback = {
+    proposalId: string;
+    reason: string;
+    /**
+     * open VerdictOpen
+     * correct VerdictCorrect
+     * incorrect VerdictIncorrect
+     */
+    verdict: 'correct' | 'incorrect';
 };
 
 export type InvestigationAuthor = {
@@ -4189,7 +4226,7 @@ export type InvestigationEvent = {
     payload: {
         [key: string]: unknown;
     };
-    type: 'investigation.opened' | 'investigation.closed' | 'participant.joined' | 'finding.created' | 'finding.retracted' | 'assessment.updated' | 'assessment.judged' | 'proposal.created' | 'proposal.deferred' | 'proposal.approved' | 'proposal.rejected' | 'proposal.superseded';
+    type: 'investigation.opened' | 'investigation.closed' | 'participant.joined' | 'finding.created' | 'finding.retracted' | 'assessment.updated' | 'assessment.judged' | 'assessment.feedback' | 'proposal.created' | 'proposal.deferred' | 'proposal.approved' | 'proposal.rejected' | 'proposal.superseded';
 };
 
 export type InvestigationEvidence = {
