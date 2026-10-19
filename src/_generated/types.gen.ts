@@ -64,6 +64,36 @@ export type AgentCustomInstructionsRequest = {
     instructions: string;
 };
 
+export type AgentDiscoverModelsRequest = {
+    /**
+     * Sensitive credential used only for discovery; never persisted.
+     */
+    apiKey?: string;
+    baseUrl?: string;
+    provider: string;
+    providerId?: string;
+};
+
+export type AgentDiscoveredModel = {
+    displayName: string;
+    /**
+     * Nullable: true
+     */
+    error?: string | null;
+    modelId: string;
+    /**
+     * Nullable: true
+     */
+    validatedAt?: string | null;
+};
+
+export type AgentDiscoveredModels = {
+    available: boolean;
+    draft?: boolean;
+    models: Array<AgentDiscoveredModel>;
+    refreshing?: boolean;
+};
+
 /**
  * AgentLLMProviderConfig is the status payload returned by the LLM provider config
  * endpoints. It never exposes the secret ref or the key.
@@ -164,6 +194,14 @@ export type AgentLlmProviderEntryRequest = {
 export type AgentModelCapabilities = {
     defaultEffort?: string;
     effortLevels: Array<string>;
+};
+
+export type AgentModelValidation = {
+    /**
+     * Nullable: true
+     */
+    error?: string | null;
+    valid: boolean;
 };
 
 /**
@@ -301,6 +339,17 @@ export type AgentToolPolicyRequest = {
     resourceSubtype?: string;
     resourceType: string;
     toolName: string;
+};
+
+export type AgentValidateModelRequest = {
+    /**
+     * Sensitive credential used only for validation; never persisted.
+     */
+    apiKey?: string;
+    baseUrl?: string;
+    modelId: string;
+    provider: string;
+    providerId?: string;
 };
 
 export type ApiKeyPolicyRef = {
@@ -4956,6 +5005,17 @@ export type ListInvestigationEventsResponse = {
      * Last returned event's timestamp; an empty page retains afterTimestamp.
      */
     nextAfterTimestamp?: string;
+};
+
+export type ListInvestigationFindingsResponse = {
+    /**
+     * Whether this page exhausts the findings currently stored; not investigation completion.
+     */
+    done: boolean;
+    /**
+     * Full findings across the root investigation, ordered by createdAt then id, ascending.
+     */
+    findings: Array<InvestigationFinding>;
 };
 
 export type ListInvestigationsResponse = {
