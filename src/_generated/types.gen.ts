@@ -4367,6 +4367,14 @@ export type InvestigationProposal = {
     id: string;
     investigationId: string;
     /**
+     * Where a pending proposal stands in moderation; set only by the tree-wide proposals list.
+     * deferred: blockedBy is non-empty; reviewing: a review of its decision group is starting or running; queued: neither.
+     * queued ReviewStateQueued
+     * reviewing ReviewStateReviewing
+     * deferred ReviewStateDeferred
+     */
+    reviewState?: 'queued' | 'reviewing' | 'deferred';
+    /**
      * pending ProposalPending
      * approved ProposalApproved
      * rejected ProposalRejected
@@ -5013,9 +5021,28 @@ export type ListInvestigationFindingsResponse = {
      */
     done: boolean;
     /**
-     * Full findings across the root investigation, ordered by createdAt then id, ascending.
+     * Full findings across the root investigation, ordered by createdAt, ascending.
      */
     findings: Array<InvestigationFinding>;
+    /**
+     * Last returned finding's createdAt, to send as afterTimestamp; an empty page retains afterTimestamp.
+     */
+    nextAfterTimestamp?: string;
+};
+
+export type ListInvestigationProposalsResponse = {
+    /**
+     * Whether this page exhausts the pending proposals currently stored.
+     */
+    done: boolean;
+    /**
+     * Last returned proposal's createdAt, to send as afterTimestamp; an empty page retains afterTimestamp.
+     */
+    nextAfterTimestamp?: string;
+    /**
+     * Pending proposals across the root investigation, each with its reviewState, ordered by createdAt, ascending.
+     */
+    proposals: Array<InvestigationProposal>;
 };
 
 export type ListInvestigationsResponse = {
@@ -6786,17 +6813,27 @@ export type ProfilingFlameNode = {
      * Omitted identifies a synthetic bucket, distinct from a real frame named other.
      */
     omitted?: boolean;
+    /**
+     * Weight sampled directly in this function. In inverted trees, caller
+     * children partition the same weight and have zero self weight.
+     */
     self?: number;
     value?: number;
 };
 
 export type ProfilingFlamegraphResponse = {
+    /**
+     * Signed weight removed by focus and frame filtering.
+     */
     filteredValue?: number;
     period?: ProfilingPeriod;
     profileType?: string;
     root?: ProfilingFlameNode;
     sampleType?: string;
     stacks?: ProfilingStackCounts;
+    /**
+     * Original authorized selection weight before focus or frame filtering.
+     */
     total?: number;
     truncated?: boolean;
     unit?: string;
@@ -6812,7 +6849,8 @@ export type ProfilingPeriod = {
  */
 export type ProfilingStackCounts = {
     /**
-     * Stacks included in the tree before depth, node, and small-branch compaction.
+     * Stacks selected for detailed paths before depth, node, and small-branch
+     * compaction. Inverted function totals also include stacks beyond this count.
      */
     returned?: number;
     /**
@@ -13662,9 +13700,24 @@ export type GetProfilingFlamegraphData = {
          */
         query: string;
         /**
-         * Maximum distinct stacks. Defaults to 6000 and is capped at 50000.
+         * Maximum detailed stacks. Defaults to 6000 and is capped at 50000.
+         * Inverted function totals include all matching stacks; this limits callers.
          */
         limit?: number;
+        /**
+         * JSON array of exact root-to-leaf frame names. The selected frame becomes
+         * the first level beneath root. Omit or pass [] for the full tree.
+         */
+        focus?: string;
+        /**
+         * Case-sensitive substring matched against any frame in a stack.
+         */
+        frameFilter?: string;
+        /**
+         * Return leaves first, after applying focus and frameFilter. Sampled-function
+         * totals use all matching stacks, before the caller-detail limit.
+         */
+        invert?: boolean;
     };
     url: '/api/profiling/flamegraph';
 };
