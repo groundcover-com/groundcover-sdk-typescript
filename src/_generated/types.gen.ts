@@ -470,12 +470,7 @@ export type AssertionSource = string;
 export type AssessmentVerdictRequest = {
     assessmentId: string;
     reason: string;
-    /**
-     * open VerdictOpen
-     * correct VerdictCorrect
-     * incorrect VerdictIncorrect
-     */
-    verdict: 'correct' | 'incorrect';
+    verdict: 'accepted' | 'rejected';
 };
 
 export type AssetDataSource = {
@@ -4209,7 +4204,10 @@ export type Investigation = {
      * The question, or the claim to test.
      */
     statement: string;
-    status: 'open' | 'resolved' | 'refuted' | 'stopped';
+    /**
+     * Questions use open/answered/stopped; hypotheses use open/supported/refuted/stopped.
+     */
+    status: 'open' | 'answered' | 'supported' | 'refuted' | 'stopped';
     timeRange?: InvestigationTimeRange;
 };
 
@@ -4230,11 +4228,8 @@ export type InvestigationAssessment = {
     updatedAt: string;
     /**
      * Set when a conclusion on the node is approved; an update resets it to open.
-     * open VerdictOpen
-     * correct VerdictCorrect
-     * incorrect VerdictIncorrect
      */
-    verdict: 'open' | 'correct' | 'incorrect';
+    verdict: 'open' | 'accepted' | 'rejected';
     verdictReason?: string;
 };
 
@@ -4244,12 +4239,7 @@ export type InvestigationAssessment = {
 export type InvestigationAssessmentFeedback = {
     proposalId: string;
     reason: string;
-    /**
-     * open VerdictOpen
-     * correct VerdictCorrect
-     * incorrect VerdictIncorrect
-     */
-    verdict: 'correct' | 'incorrect';
+    verdict: 'accepted' | 'rejected';
 };
 
 export type InvestigationAuthor = {
@@ -4374,13 +4364,7 @@ export type InvestigationProposal = {
      * deferred ReviewStateDeferred
      */
     reviewState?: 'queued' | 'reviewing' | 'deferred';
-    /**
-     * pending ProposalPending
-     * approved ProposalApproved
-     * rejected ProposalRejected
-     * superseded ProposalSuperseded
-     */
-    status: 'pending' | 'approved' | 'rejected' | 'superseded';
+    status: 'pending' | 'accepted' | 'rejected' | 'superseded';
     /**
      * create_child ProposalCreateChild
      * resolve ProposalResolve
