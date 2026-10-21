@@ -2277,7 +2277,7 @@ export type CreateIngestionKeyRequest = {
 
 export type CreateInvestigationRequest = {
     scope?: Array<InvestigationScopeEntry>;
-    source?: InvestigationSource;
+    source: InvestigationSource;
     statement: string;
     timeRange?: InvestigationTimeRange;
 };
@@ -3202,7 +3202,7 @@ export type EnvType = string;
  * (message + machine-readable code + trace_id, plus optional metadata).
  */
 export type ErrorResponse = {
-    code?: 'EXCEEDED_MAX_ROWS_TO_GROUP_BY' | 'MONITOR_EVAL_FAILED' | 'MONITOR_VALIDATION_FAILED' | 'MONITOR_DUPLICATE_TITLE' | 'CONNECTED_APP_IN_USE' | 'VIEW_REVISION_CONFLICT' | 'CONNECTED_APP_ORPHANED_SECRET' | 'INVALID_ARGUMENT' | 'INVESTIGATION_EXISTS' | 'INVESTIGATION_CLOSED' | 'FINDING_OUT_OF_SCOPE' | 'FINDING_RETRACTED' | 'NOT_AUTHOR' | 'INVESTIGATION_GRAMMAR' | 'EVIDENCE_REQUIRED' | 'REFUTE_REQUIRES_HYPOTHESIS';
+    code?: 'EXCEEDED_MAX_ROWS_TO_GROUP_BY' | 'MONITOR_EVAL_FAILED' | 'MONITOR_VALIDATION_FAILED' | 'MONITOR_DUPLICATE_TITLE' | 'CONNECTED_APP_IN_USE' | 'VIEW_REVISION_CONFLICT' | 'CONNECTED_APP_ORPHANED_SECRET' | 'INVALID_ARGUMENT' | 'INVESTIGATION_EXISTS' | 'RUN_IDENTITY_REQUIRED' | 'INVESTIGATION_CLOSED' | 'FINDING_OUT_OF_SCOPE' | 'FINDING_RETRACTED' | 'NOT_AUTHOR' | 'INVESTIGATION_GRAMMAR' | 'EVIDENCE_REQUIRED' | 'REFUTE_REQUIRES_HYPOTHESIS';
     details?: unknown;
     docs_url?: string;
     message?: string;
