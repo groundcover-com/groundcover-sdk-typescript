@@ -1000,6 +1000,29 @@ export type AssociatedRequestV2 = {
 };
 
 /**
+ * PutWorkloadsConfigRequest sets AutoInfra on a batch of workloads.
+ */
+export type AutoInfraPutWorkloadsConfigRequest = {
+    configs: Array<AutoInfraWorkloadConfig>;
+};
+
+/**
+ * WorkloadConfig is one workload's setting. Env is "" for a cluster installed without one, and
+ * Namespace is "" for cluster-scoped kinds.
+ */
+export type AutoInfraWorkloadConfig = {
+    cluster: string;
+    /**
+     * Whether Autonomous Infrastructure manages the workload's resources.
+     */
+    enabled: boolean;
+    env?: string;
+    kind: string;
+    name: string;
+    namespace?: string;
+};
+
+/**
  * AwsCurSearchRequest is the shared request body of the aws_cur search
  * endpoints. Exactly one of Query or Pipeline must be provided. Unlike the
  * apm/ingestion domains there are no mandatory top-level filters — every
@@ -1297,6 +1320,13 @@ export type CatalogTemplateResponse = {
      */
     topWidgets?: Array<TemplateWidget>;
     version?: number;
+};
+
+/**
+ * ChangedResponse counts the rows an upsert created or whose enabled changed; a row sent unchanged is not counted.
+ */
+export type ChangedResponse = {
+    changed?: number;
 };
 
 export type CheckoutSessionRequest = {
