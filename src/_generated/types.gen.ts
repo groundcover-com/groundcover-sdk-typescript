@@ -1006,6 +1006,13 @@ export type AutoInfraPutWorkloadsConfigRequest = {
     configs: Array<AutoInfraWorkloadConfig>;
 };
 
+export type AutoInfraSearchRequest = {
+    /**
+     * gcQL over `_from autonomous_infra` (the default domain here): one row per workload.
+     */
+    query: string;
+};
+
 /**
  * WorkloadConfig is one workload's setting. Env is "" for a cluster installed without one, and
  * Namespace is "" for cluster-scoped kinds.
@@ -1994,6 +2001,44 @@ export type ConnectorStatus = {
      * Whether the connector is enabled (org-level credential exists)
      */
     enabled?: boolean;
+};
+
+/**
+ * ConnectorValidationErrorDetails lists every validation violation.
+ */
+export type ConnectorValidationErrorDetails = {
+    violations: Array<ConnectorValidationViolation>;
+};
+
+/**
+ * ConnectorValidationErrorResponse is a connector 400; validation failures list every violation in details.
+ */
+export type ConnectorValidationErrorResponse = {
+    details?: ConnectorValidationErrorDetails;
+    message: string;
+    trace_id?: string;
+};
+
+/**
+ * ConnectorValidationViolation is one rule the submitted connector data violates.
+ */
+export type ConnectorValidationViolation = {
+    /**
+     * Human-readable explanation.
+     */
+    message: string;
+    /**
+     * Field path in the submitted data.
+     */
+    path: string;
+    /**
+     * Stable, machine-readable rule code.
+     */
+    rule: string;
+    /**
+     * The offending scope, event or URL, when there is one.
+     */
+    value?: string;
 };
 
 export type ConversionResultItem = {
@@ -6566,7 +6611,8 @@ export type OrderedReasons = Array<ReasonEntry>;
  * OrgConnectorUpdateRequest wraps mutable org connector fields.
  *
  * For Slack, `name` may be set at the top level and `data` may include
- * `client_secret` and/or `app_token`. For MCP, `data` carries OAuth client
+ * `client_secret`, `app_token` and/or `manifest_json` (the Slack app manifest
+ * to save; omit it to keep the saved one). For MCP, `data` carries OAuth client
  * fields only. Omitted `data` is treated as an empty object.
  */
 export type OrgConnectorUpdateRequest = {
@@ -7534,7 +7580,7 @@ export type SearchValuesRequest = {
     /**
      * Type of the search values
      */
-    type: 'logs' | 'traces' | 'events' | 'issues' | 'entities' | 'apm' | 'ingestion_measurements' | 'dbm_measurements_statement' | 'monitors' | 'aws_cur' | 'dashboards' | 'profiling_samples';
+    type: 'logs' | 'traces' | 'events' | 'issues' | 'entities' | 'apm' | 'ingestion_measurements' | 'dbm_measurements_statement' | 'monitors' | 'aws_cur' | 'dashboards' | 'profiling_samples' | 'autonomous_infra';
 };
 
 export type SearchValuesRequestV2 = {
