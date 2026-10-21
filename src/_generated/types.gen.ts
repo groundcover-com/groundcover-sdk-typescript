@@ -6788,6 +6788,27 @@ export type Processor = {
 };
 
 /**
+ * DiffFlameNode contains inclusive and self weight per side in the selected
+ * sample unit. A frame present on one side only has zero weight on the other.
+ */
+export type ProfilingDiffFlameNode = {
+    baseSelf?: number;
+    baseValue?: number;
+    children?: Array<ProfilingDiffFlameNode>;
+    name?: string;
+    /**
+     * Omitted identifies a synthetic bucket, distinct from a real frame named other.
+     */
+    omitted?: boolean;
+    /**
+     * Weight sampled directly in this function. In inverted trees, caller
+     * children partition the same weight and have zero self weight.
+     */
+    self?: number;
+    value?: number;
+};
+
+/**
  * FlameNode contains inclusive and self weight in the selected sample unit.
  */
 export type ProfilingFlameNode = {
@@ -6803,6 +6824,27 @@ export type ProfilingFlameNode = {
      */
     self?: number;
     value?: number;
+};
+
+export type ProfilingFlamegraphDiffResponse = {
+    baseFilteredValue?: number;
+    basePeriod?: ProfilingPeriod;
+    baseTotal?: number;
+    /**
+     * Weight removed by focus and frame filtering.
+     */
+    filteredValue?: number;
+    period?: ProfilingPeriod;
+    profileType?: string;
+    root?: ProfilingDiffFlameNode;
+    sampleType?: string;
+    stacks?: ProfilingStackCounts;
+    /**
+     * Original authorized selection weight before focus or frame filtering.
+     */
+    total?: number;
+    truncated?: boolean;
+    unit?: string;
 };
 
 export type ProfilingFlamegraphResponse = {
