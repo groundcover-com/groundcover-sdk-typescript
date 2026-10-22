@@ -9969,6 +9969,7 @@ export type V2NotificationRoutes = {
 export type V2NotificationSettings = {
     destinations?: V2Destinations;
     disableRenotification?: boolean;
+    hidePreviewGraph?: boolean;
     noNotifications?: V2NoNotifications;
     notificationRoutes?: V2NotificationRoutes;
     renotificationInterval?: string;
