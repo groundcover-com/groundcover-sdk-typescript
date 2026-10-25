@@ -7448,7 +7448,7 @@ export type SearchDiscoveryRequest = {
     /**
      * Type specifies the type of discovery to perform.
      */
-    type: 'logs' | 'traces' | 'events' | 'issues' | 'entities' | 'apm' | 'monitors' | 'dashboards';
+    type: 'logs' | 'traces' | 'events' | 'issues' | 'entities' | 'apm' | 'monitors' | 'dashboards' | 'rum_events' | 'rum_sessions';
 };
 
 export type SearchKeysRequest = {
@@ -7659,7 +7659,7 @@ export type SearchValuesRequest = {
     /**
      * Type of the search values
      */
-    type: 'logs' | 'traces' | 'events' | 'issues' | 'entities' | 'apm' | 'ingestion_measurements' | 'dbm_measurements_statement' | 'monitors' | 'aws_cur' | 'dashboards' | 'profiling_samples' | 'autonomous_infra';
+    type: 'logs' | 'traces' | 'events' | 'issues' | 'entities' | 'apm' | 'ingestion_measurements' | 'dbm_measurements_statement' | 'monitors' | 'aws_cur' | 'dashboards' | 'profiling_samples' | 'rum_events' | 'rum_sessions' | 'autonomous_infra';
 };
 
 export type SearchValuesRequestV2 = {
