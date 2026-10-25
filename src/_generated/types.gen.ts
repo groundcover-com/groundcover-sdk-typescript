@@ -7335,6 +7335,85 @@ export type RouteRuleResponse = {
 };
 
 /**
+ * RumSearchRequest is the shared body for the RUM GCQL search endpoints: a time
+ * window, optional Sources scope, and a required GCQL Query. Only GCQL is
+ * accepted — there is no raw-pipeline input, so every request is parsed (and its
+ * identifiers validated) by the GCQL parser before any SQL is built.
+ */
+export type RumSearchRequest = {
+    /**
+     * End time of the request range
+     */
+    end: string;
+    /**
+     * Extra raw filters appended to the scope.
+     */
+    filters?: string;
+    /**
+     * GCQL query string.
+     */
+    query: string;
+    /**
+     * Sources scope (cluster/env/namespace). Applied on BOTH sides of a
+     * cross-domain join.
+     */
+    sources?: Array<Condition>;
+    /**
+     * Start time of the request range
+     */
+    start: string;
+};
+
+/**
+ * RumSearchTimeSeriesRequest extends the RUM search request with the time-series
+ * controls: a required BucketDuration, an optional ValueField projected as the
+ * series value, and an optional FillValue for empty buckets. Like the raw
+ * endpoints it is GCQL-only, and the query MUST include an aggregation
+ * (e.g. "... | stats count() as total") — ApplyRollup adds the time bucket.
+ */
+export type RumSearchTimeSeriesRequest = {
+    /**
+     * Bucket duration for the time series (e.g. "1m" or "5 minutes"). Parsed by
+     * clickhouse.IntervalToDuration (shared with every other search-time-series
+     * endpoint): short units ("1m", "30s", "1h") and PLURAL word units
+     * ("5 minutes", "2 hours") are accepted; singular word units ("1 minute") are
+     * not.
+     */
+    bucketDuration: string;
+    /**
+     * End time of the request range
+     */
+    end: string;
+    /**
+     * Value used to fill empty time buckets. When omitted, empty buckets are null.
+     */
+    fillValue?: number;
+    /**
+     * Extra raw filters appended to the scope.
+     */
+    filters?: string;
+    /**
+     * GCQL query string.
+     */
+    query: string;
+    /**
+     * Sources scope (cluster/env/namespace). Applied on BOTH sides of a
+     * cross-domain join.
+     */
+    sources?: Array<Condition>;
+    /**
+     * Start time of the request range
+     */
+    start: string;
+    /**
+     * ValueField selects the numeric column projected as the series value
+     * (e.g. the "total" alias of a count()). When empty the single numeric
+     * column of the result is used.
+     */
+    valueField?: string;
+};
+
+/**
  * SamplePair represents a timestamp and a sample value
  */
 export type SamplePair = {
