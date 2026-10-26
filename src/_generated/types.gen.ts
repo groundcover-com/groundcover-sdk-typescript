@@ -2256,6 +2256,10 @@ export type CreateAssetsResponse = {
  * CreateBackendInvestigationRequest opens a root for a backend caller acting for a user, with how it started.
  */
 export type CreateBackendInvestigationRequest = {
+    /**
+     * Sent to the root's investigator after the statement.
+     */
+    instructions?: string;
     scope?: Array<InvestigationScopeEntry>;
     source: InvestigationBackendSource;
     statement: string;
@@ -4287,12 +4291,22 @@ export type Integrations = {
  * Investigation is one node of an investigation tree; a root has no parent and is always a question.
  */
 export type Investigation = {
+    closeApprovedBy?: InvestigationAuthor;
     closedAt?: string;
+    closedBy?: InvestigationAuthor;
     createdAt: string;
     createdBy: InvestigationAuthor;
     id: string;
+    /**
+     * What the backend caller that opened the root asked of its investigator, sent after the statement; omitted when none.
+     */
+    instructions?: string;
     kind: 'question' | 'hypothesis';
     outcome?: string;
+    /**
+     * The approved resolve, refute or stop that closed the node; for a node a stop closed below it, that stop.
+     */
+    outcomeProposalId?: string;
     /**
      * Parent node; omitted for roots.
      */
@@ -4333,11 +4347,17 @@ export type InvestigationAssessment = {
      * Set from the approved conclusion's verdict on this revision; an update resets it to open.
      */
     verdict: 'open' | 'accepted' | 'rejected';
+    verdictApprovedBy?: InvestigationAuthor;
     /**
      * The approved conclusion whose verdict set Verdict.
      */
     verdictProposalId?: string;
     verdictReason?: string;
+    /**
+     * When that conclusion was approved.
+     */
+    verdictSetAt?: string;
+    verdictSetBy?: InvestigationAuthor;
 };
 
 /**
