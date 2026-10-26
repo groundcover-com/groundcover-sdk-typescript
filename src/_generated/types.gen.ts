@@ -28,6 +28,10 @@ export type AgentChatModel = {
     modelId: string;
     provider: string;
     providerId: string;
+    /**
+     * Configured cloud endpoint/resource region; omitted when unknown.
+     */
+    region?: string;
 };
 
 export type AgentChatModels = {
@@ -166,6 +170,10 @@ export type AgentLlmProviderEntry = {
     isSecretRefSet?: boolean;
     modelId?: string;
     provider?: string;
+    /**
+     * Configured cloud endpoint/resource region; omitted when unknown.
+     */
+    region?: string;
     /**
      * Enabled models for which the cost calculator has no model-specific pricing.
      */
