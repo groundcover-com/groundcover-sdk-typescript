@@ -3985,6 +3985,10 @@ export type GetInvestigationTreeResponse = {
      */
     eventsAfter: number;
     /**
+     * Distinct integrations reported by assessments anywhere in this tree, including rejected assessments.
+     */
+    missingGroundcoverIntegrations?: Array<MissingGroundcoverIntegrationRef>;
+    /**
      * Timestamp of the latest event in this snapshot; omitted when no event exists.
      */
     nextAfterTimestamp?: string;
@@ -4338,6 +4342,10 @@ export type InvestigationAssessment = {
     evidence: Array<InvestigationEvidence>;
     id: string;
     investigationId: string;
+    /**
+     * Groundcover integrations recommended by this assessment.
+     */
+    missingGroundcoverIntegrations?: Array<MissingGroundcoverIntegration>;
     /**
      * Starts at 1; every update adds one.
      */
@@ -6250,6 +6258,31 @@ export type MissingDataSetBucket = {
     missing_env?: ValueMissingBucket;
     tail?: TailDataSetBreakdown;
     total?: number;
+};
+
+export type MissingGroundcoverIntegration = {
+    /**
+     * Opaque offering ID supplied by the caller.
+     */
+    id: string;
+    /**
+     * connector MissingGroundcoverIntegrationConnector
+     * data_source MissingGroundcoverIntegrationDataSource
+     */
+    kind: 'connector' | 'data_source';
+    /**
+     * Additional evidence or telemetry that would help complete the assessment.
+     */
+    reason?: string;
+};
+
+export type MissingGroundcoverIntegrationRef = {
+    id: string;
+    /**
+     * connector MissingGroundcoverIntegrationConnector
+     * data_source MissingGroundcoverIntegrationDataSource
+     */
+    kind: 'connector' | 'data_source';
 };
 
 /**
