@@ -2253,6 +2253,17 @@ export type CreateAssetsResponse = {
 };
 
 /**
+ * CreateBackendInvestigationRequest opens a root for a backend caller acting for a user, with how it started.
+ */
+export type CreateBackendInvestigationRequest = {
+    scope?: Array<InvestigationScopeEntry>;
+    source: InvestigationBackendSource;
+    statement: string;
+    subject: InvestigationSubject;
+    timeRange?: InvestigationTimeRange;
+};
+
+/**
  * CreateConnectedAppRequest is the request body for creating a new connected app.
  */
 export type CreateConnectedAppRequest = {
@@ -2367,8 +2378,8 @@ export type CreateIngestionKeyRequest = {
 
 export type CreateInvestigationRequest = {
     scope?: Array<InvestigationScopeEntry>;
-    source: InvestigationSource;
     statement: string;
+    subject: InvestigationSubject;
     timeRange?: InvestigationTimeRange;
 };
 
@@ -4300,6 +4311,7 @@ export type Investigation = {
      * Questions use open/answered/stopped; hypotheses use open/supported/refuted/stopped.
      */
     status: 'open' | 'answered' | 'supported' | 'refuted' | 'stopped';
+    subject?: InvestigationSubject;
     timeRange?: InvestigationTimeRange;
 };
 
@@ -4360,6 +4372,14 @@ export type InvestigationAuthor = {
     id: string;
     name: string;
     type: 'user' | 'service_account' | 'system' | 'agent';
+};
+
+/**
+ * BackendSource is the source a backend caller opens a root from.
+ */
+export type InvestigationBackendSource = {
+    ref: InvestigationSourceRef;
+    type: 'automation';
 };
 
 /**
@@ -4531,14 +4551,29 @@ export type InvestigationScopeEntry = {
 };
 
 /**
- * Source is what opened a root investigation. At most one root per issue is open at a time.
+ * Source is how a root started: manual on the public create route, or what a backend caller opened it from.
  */
 export type InvestigationSource = {
-    ref: InvestigationSourceRef;
-    type: 'issue';
+    ref?: InvestigationSourceRef;
+    type: 'manual' | 'automation';
 };
 
 export type InvestigationSourceRef = {
+    /**
+     * The automation trigger that opened the root.
+     */
+    triggerId: string;
+};
+
+/**
+ * Subject is what a root investigates. At most one root per subject is open at a time.
+ */
+export type InvestigationSubject = {
+    ref: InvestigationSubjectRef;
+    type: 'issue';
+};
+
+export type InvestigationSubjectRef = {
     /**
      * The monitor issue's fingerprint.
      */
