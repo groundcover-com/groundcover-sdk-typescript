@@ -475,9 +475,16 @@ export type AssertionSeverity = string;
  */
 export type AssertionSource = string;
 
+/**
+ * AssessmentVerdictRequest grades one open assessment on the node at the revision the proposer read.
+ */
 export type AssessmentVerdictRequest = {
     assessmentId: string;
     reason: string;
+    /**
+     * The assessment's revision the verdict grades.
+     */
+    revision: number;
     verdict: 'accepted' | 'rejected';
 };
 
@@ -2509,6 +2516,11 @@ export type CreatePolicyRequest = {
  * CreateProposalRequest submits a decision for later approval or rejection.
  */
 export type CreateProposalRequest = {
+    /**
+     * Required for resolve and refute: exactly one per open assessment on the node, at its current revision.
+     * Not allowed for create_child and stop.
+     */
+    assessmentVerdicts?: Array<AssessmentVerdictRequest>;
     child?: InvestigationProposalChild;
     details: string;
     /**
@@ -3069,13 +3081,10 @@ export type DatasourceKeyGap = {
 };
 
 /**
- * DecideProposalRequest approves or rejects a pending proposal.
+ * DecideProposalRequest approves or rejects a pending proposal. Approving a resolve or refute applies the
+ * proposal's own assessment verdicts.
  */
 export type DecideProposalRequest = {
-    /**
-     * Each assessment may appear once. Approvals judge assessments only for resolve/refute.
-     */
-    assessmentVerdicts?: Array<AssessmentVerdictRequest>;
     reason: string;
 };
 
@@ -4301,7 +4310,6 @@ export type InvestigationAssessment = {
     author: InvestigationAuthor;
     details: string;
     evidence: Array<InvestigationEvidence>;
-    feedback?: InvestigationAssessmentFeedback;
     id: string;
     investigationId: string;
     /**
@@ -4310,19 +4318,41 @@ export type InvestigationAssessment = {
     revision: number;
     updatedAt: string;
     /**
-     * Set when a conclusion on the node is approved; an update resets it to open.
+     * Set from the approved conclusion's verdict on this revision; an update resets it to open.
      */
     verdict: 'open' | 'accepted' | 'rejected';
+    /**
+     * The approved conclusion whose verdict set Verdict.
+     */
+    verdictProposalId?: string;
     verdictReason?: string;
 };
 
 /**
- * AssessmentFeedback is provisional feedback from a rejected proposal.
+ * AssessmentRevision names an assessment at one revision.
  */
-export type InvestigationAssessmentFeedback = {
-    proposalId: string;
-    reason: string;
-    verdict: 'accepted' | 'rejected';
+export type InvestigationAssessmentRevision = {
+    assessmentId: string;
+    revision: number;
+};
+
+/**
+ * AssessmentVerdictsDetails are the INVALID_ARGUMENT details when a conclusion's verdicts don't match the node's
+ * open assessments.
+ */
+export type InvestigationAssessmentVerdictsDetails = {
+    /**
+     * Open assessments without a verdict, at their current revision.
+     */
+    missing?: Array<InvestigationAssessmentRevision>;
+    /**
+     * Assessments graded at an older revision, with their current revision.
+     */
+    stale?: Array<InvestigationAssessmentRevision>;
+    /**
+     * Graded ids that are not open assessments on the node.
+     */
+    unexpected?: Array<string>;
 };
 
 export type InvestigationAuthor = {
@@ -4348,7 +4378,7 @@ export type InvestigationEvent = {
     payload: {
         [key: string]: unknown;
     };
-    type: 'investigation.opened' | 'investigation.closed' | 'participant.joined' | 'finding.created' | 'finding.retracted' | 'assessment.updated' | 'assessment.judged' | 'assessment.feedback' | 'proposal.created' | 'proposal.deferred' | 'proposal.approved' | 'proposal.rejected' | 'proposal.superseded';
+    type: 'investigation.opened' | 'investigation.closed' | 'participant.joined' | 'finding.created' | 'finding.retracted' | 'assessment.updated' | 'assessment.judged' | 'proposal.created' | 'proposal.deferred' | 'proposal.approved' | 'proposal.rejected' | 'proposal.superseded';
 };
 
 export type InvestigationEvidence = {
@@ -4427,6 +4457,10 @@ export type InvestigationInvalidCitation = {
  */
 export type InvestigationProposal = {
     /**
+     * A resolve or refute's verdicts on the node's assessments, each at the revision it graded.
+     */
+    assessmentVerdicts?: Array<InvestigationProposalAssessmentVerdict>;
+    /**
      * Open descendants blocking a pending resolve or refute, computed at read time.
      */
     blockedBy?: Array<string>;
@@ -4455,6 +4489,21 @@ export type InvestigationProposal = {
      * stop ProposalStop
      */
     type: 'create_child' | 'resolve' | 'refute' | 'stop';
+};
+
+/**
+ * ProposalAssessmentVerdict is a proposal's verdict on one assessment, as reads return it.
+ */
+export type InvestigationProposalAssessmentVerdict = {
+    assessmentAuthor: InvestigationAuthor;
+    assessmentId: string;
+    /**
+     * The assessment's current revision; the verdict applies only while it equals Revision.
+     */
+    assessmentRevision: number;
+    reason: string;
+    revision: number;
+    verdict: 'accepted' | 'rejected';
 };
 
 /**
@@ -13909,7 +13958,7 @@ export type GetProfilingFlamegraphData = {
          */
         invert?: boolean;
     };
-    url: '/api/profiling/flamegraph';
+    url: '/api/profiling/v1/flamegraph';
 };
 
 export type GetProfilingFlamegraphErrors = {
@@ -13952,6 +14001,100 @@ export type GetProfilingFlamegraphResponses = {
 };
 
 export type GetProfilingFlamegraphResponse = GetProfilingFlamegraphResponses[keyof GetProfilingFlamegraphResponses];
+
+export type GetProfilingFlamegraphDiffData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * Start time of the request range
+         */
+        start: string;
+        /**
+         * End time of the request range
+         */
+        end: string;
+        /**
+         * GCQL filter expression pinning workload, profile_type, and sample_type.
+         */
+        query: string;
+        /**
+         * Maximum detailed stacks. Defaults to 6000 and is capped at 50000.
+         * Inverted function totals include all matching stacks; this limits callers.
+         */
+        limit?: number;
+        /**
+         * JSON array of exact root-to-leaf frame names. The selected frame becomes
+         * the first level beneath root. Omit or pass [] for the full tree.
+         */
+        focus?: string;
+        /**
+         * Case-sensitive substring matched against any frame in a stack.
+         */
+        frameFilter?: string;
+        /**
+         * Return leaves first, after applying focus and frameFilter. Sampled-function
+         * totals use all matching stacks, before the caller-detail limit.
+         */
+        invert?: boolean;
+        /**
+         * Baseline window start (RFC3339). Set together with baseEnd; without
+         * both, the baseline uses start and end.
+         */
+        baseStart?: string;
+        /**
+         * Baseline window end (RFC3339). Set together with baseStart.
+         */
+        baseEnd?: string;
+        /**
+         * GCQL filter for the baseline side. Defaults to query. It must pin the
+         * same workload, profile_type, and sample_type as query.
+         */
+        baseQuery?: string;
+    };
+    url: '/api/profiling/v1/flamegraph-diff';
+};
+
+export type GetProfilingFlamegraphDiffErrors = {
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    400: {
+        message?: string;
+    };
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    404: {
+        message?: string;
+    };
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    422: {
+        message?: string;
+    };
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    500: {
+        message?: string;
+    };
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    504: {
+        message?: string;
+    };
+};
+
+export type GetProfilingFlamegraphDiffError = GetProfilingFlamegraphDiffErrors[keyof GetProfilingFlamegraphDiffErrors];
+
+export type GetProfilingFlamegraphDiffResponses = {
+    200: ProfilingFlamegraphDiffResponse;
+};
+
+export type GetProfilingFlamegraphDiffResponse = GetProfilingFlamegraphDiffResponses[keyof GetProfilingFlamegraphDiffResponses];
 
 export type DeleteApiKeyData = {
     body?: never;
