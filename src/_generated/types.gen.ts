@@ -4339,6 +4339,7 @@ export type Investigation = {
      * What the backend caller that opened the root asked of its investigator, sent after the statement; omitted when none.
      */
     instructions?: string;
+    investigator?: InvestigatorRun;
     kind: 'question' | 'hypothesis';
     outcome?: string;
     /**
@@ -4455,7 +4456,7 @@ export type InvestigationEvent = {
     author: InvestigationAuthor;
     createdAt: string;
     entityId: string;
-    entityType: 'investigation' | 'participant' | 'finding' | 'assessment' | 'proposal' | 'review';
+    entityType: 'investigation' | 'participant' | 'finding' | 'assessment' | 'proposal' | 'investigator' | 'moderator';
     id: string;
     investigationId: string;
     /**
@@ -4464,7 +4465,7 @@ export type InvestigationEvent = {
     payload: {
         [key: string]: unknown;
     };
-    type: 'investigation.opened' | 'investigation.closed' | 'participant.joined' | 'finding.created' | 'finding.retracted' | 'assessment.updated' | 'assessment.judged' | 'proposal.created' | 'proposal.deferred' | 'proposal.approved' | 'proposal.rejected' | 'proposal.superseded';
+    type: 'investigation.opened' | 'investigation.closed' | 'participant.joined' | 'finding.created' | 'finding.retracted' | 'assessment.updated' | 'assessment.judged' | 'proposal.created' | 'proposal.deferred' | 'proposal.approved' | 'proposal.rejected' | 'proposal.superseded' | 'investigator.run_rejected' | 'moderator.run_rejected' | 'moderator.run_limit_reached';
 };
 
 export type InvestigationEvidence = {
@@ -4561,12 +4562,14 @@ export type InvestigationProposal = {
     investigationId: string;
     /**
      * Where a pending proposal stands in moderation; set only by the tree-wide proposals list.
-     * deferred: blockedBy is non-empty; reviewing: a review of its decision group is starting or running; queued: neither.
+     * deferred: blockedBy is non-empty; reviewing: a review of its decision group is starting or running;
+     * needs_person: its group's cycle used up its reviews, so a person decides; queued: none of these.
      * queued ReviewStateQueued
      * reviewing ReviewStateReviewing
      * deferred ReviewStateDeferred
+     * needs_person ReviewStateNeedsPerson
      */
-    reviewState?: 'queued' | 'reviewing' | 'deferred';
+    reviewState?: 'queued' | 'reviewing' | 'deferred' | 'needs_person';
     status: 'pending' | 'accepted' | 'rejected' | 'superseded';
     /**
      * create_child ProposalCreateChild
@@ -4649,6 +4652,37 @@ export type InvestigationSubjectRef = {
 export type InvestigationTimeRange = {
     from?: string;
     to?: string;
+};
+
+/**
+ * InvestigatorRun is the start of a root's investigator: pending until agent-service accepts or refuses it.
+ */
+export type InvestigatorRun = {
+    error?: InvestigatorRunError;
+    /**
+     * When agent-service accepted or refused the start.
+     */
+    finishedAt?: string;
+    /**
+     * pending InvestigatorPending
+     * started InvestigatorStarted
+     * failed InvestigatorFailed
+     */
+    status: 'pending' | 'started' | 'failed';
+};
+
+/**
+ * RunError is agent-service's answer to a refused run start.
+ */
+export type InvestigatorRunError = {
+    /**
+     * agent-service's error code.
+     */
+    code: string;
+    /**
+     * The HTTP status.
+     */
+    status: number;
 };
 
 export type InviteRequest = {
