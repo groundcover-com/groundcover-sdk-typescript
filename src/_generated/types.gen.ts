@@ -4429,6 +4429,10 @@ export type InvestigationAuthor = {
     agentInstanceId?: string;
     id: string;
     name: string;
+    /**
+     * Email of the user this participant acts on behalf of; absent without delegation.
+     */
+    onBehalfOf?: string;
     type: 'user' | 'service_account' | 'system' | 'agent';
 };
 
