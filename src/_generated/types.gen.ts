@@ -4021,6 +4021,10 @@ export type GetInvestigationTreeResponse = {
      * Root first, then remaining nodes by createdAt and id.
      */
     nodes: Array<Investigation>;
+    /**
+     * Contributors only, without system writers or the moderator; each groundcover agent appears once, as its first run.
+     * A node's or finding's createdBy can name a later run that isn't listed, so use inline authors, not participant ids.
+     */
     participants: Array<InvestigationAuthor>;
 };
 
