@@ -4,6 +4,11 @@ export type ClientOptions = {
     baseUrl: 'https://api.groundcover.com' | (string & {});
 };
 
+export type Activation = {
+    activeRevision: string;
+    error?: string;
+};
+
 export type AddLabelConfig = {
     addLabel?: {
         [key: string]: string;
@@ -169,6 +174,10 @@ export type AgentLlmProviderEntry = {
     id?: string;
     isSecretRefSet?: boolean;
     modelId?: string;
+    /**
+     * Exact pricing lookup IDs for enabled models, in lookup order.
+     */
+    pricingModelIds?: Array<string>;
     provider?: string;
     /**
      * Configured cloud endpoint/resource region; omitted when unknown.
@@ -2889,6 +2898,22 @@ export type CursorTargetResponse = {
     url?: string;
 };
 
+export type CustomLlmPricingFileInfo = {
+    filename: string;
+    modelCount: number;
+    report: ImportReport;
+    uploadedAt: string;
+    uploadedBy: string;
+};
+
+export type CustomLlmPricingResponse = {
+    activeRevision: string;
+    error?: string;
+    file: CustomLlmPricingFileInfo;
+    savedRevision: string;
+    status: 'applying' | 'active';
+};
+
 /**
  * CustomResolveThreshold defines a hysteresis recovery condition for a Threshold.
  *
@@ -4079,6 +4104,11 @@ export type HttpRequestBodyType = string;
  * HttpRequestKind defines model for HttpRequest.Kind.
  */
 export type HttpRequestKind = string;
+
+export type ImportReport = {
+    skippedModels: number;
+    unsupportedFields: Array<string>;
+};
 
 export type IncidentIoData = {
     severity_mapping?: {
