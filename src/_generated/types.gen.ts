@@ -4465,7 +4465,7 @@ export type InvestigationEvent = {
     payload: {
         [key: string]: unknown;
     };
-    type: 'investigation.opened' | 'investigation.closed' | 'participant.joined' | 'finding.created' | 'finding.retracted' | 'assessment.updated' | 'assessment.judged' | 'proposal.created' | 'proposal.deferred' | 'proposal.approved' | 'proposal.rejected' | 'proposal.superseded' | 'investigator.run_rejected' | 'moderator.run_rejected' | 'moderator.run_limit_reached';
+    type: 'investigation.opened' | 'investigation.closed' | 'participant.joined' | 'finding.created' | 'finding.retracted' | 'assessment.updated' | 'assessment.judged' | 'proposal.created' | 'proposal.deferred' | 'proposal.approved' | 'proposal.rejected' | 'proposal.superseded' | 'investigator.run_rejected' | 'investigator.run_requested' | 'moderator.run_rejected' | 'moderator.run_limit_reached';
 };
 
 export type InvestigationEvidence = {
@@ -13308,6 +13308,10 @@ export type V2GetAllSilencesData = {
         includeRecurring?: boolean;
         limit?: number;
         skip?: number;
+        /**
+         * Comma-separated silence UUIDs to return. Narrows the result like the other filters, which still apply.
+         */
+        ids?: string;
     };
     url: '/api/monitors/v2/silences';
 };
