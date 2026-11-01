@@ -2269,6 +2269,11 @@ export type CreateBackendInvestigationRequest = {
      * Sent to the root's investigator after the statement.
      */
     instructions?: string;
+    /**
+     * At most this many of the trigger's roots may be open: at the cap, a root for a new subject is refused
+     * with 429 TRIGGER_AT_CAPACITY. Omitted: no limit.
+     */
+    maxConcurrent?: number;
     scope?: Array<InvestigationScopeEntry>;
     source: InvestigationBackendSource;
     statement: string;
@@ -3334,7 +3339,7 @@ export type EnvType = string;
  * (message + machine-readable code + trace_id, plus optional metadata).
  */
 export type ErrorResponse = {
-    code?: 'EXCEEDED_MAX_ROWS_TO_GROUP_BY' | 'MONITOR_EVAL_FAILED' | 'MONITOR_VALIDATION_FAILED' | 'MONITOR_DUPLICATE_TITLE' | 'CONNECTED_APP_IN_USE' | 'VIEW_REVISION_CONFLICT' | 'CONNECTED_APP_ORPHANED_SECRET' | 'INVALID_ARGUMENT' | 'INVESTIGATION_EXISTS' | 'RUN_IDENTITY_REQUIRED' | 'INVESTIGATION_CLOSED' | 'FINDING_OUT_OF_SCOPE' | 'FINDING_RETRACTED' | 'NOT_AUTHOR' | 'INVESTIGATION_GRAMMAR' | 'EVIDENCE_REQUIRED' | 'REFUTE_REQUIRES_HYPOTHESIS';
+    code?: 'EXCEEDED_MAX_ROWS_TO_GROUP_BY' | 'MONITOR_EVAL_FAILED' | 'MONITOR_VALIDATION_FAILED' | 'MONITOR_DUPLICATE_TITLE' | 'CONNECTED_APP_IN_USE' | 'VIEW_REVISION_CONFLICT' | 'CONNECTED_APP_ORPHANED_SECRET' | 'INVALID_ARGUMENT' | 'INVESTIGATION_EXISTS' | 'TRIGGER_AT_CAPACITY' | 'RUN_IDENTITY_REQUIRED' | 'INVESTIGATION_CLOSED' | 'FINDING_OUT_OF_SCOPE' | 'FINDING_RETRACTED' | 'NOT_AUTHOR' | 'INVESTIGATION_GRAMMAR' | 'EVIDENCE_REQUIRED' | 'REFUTE_REQUIRES_HYPOTHESIS';
     details?: unknown;
     docs_url?: string;
     message?: string;
@@ -4655,6 +4660,37 @@ export type InvestigationTimeRange = {
 };
 
 /**
+ * Trigger opens a root investigation when a monitor issue its query selects starts firing.
+ */
+export type InvestigationTrigger = {
+    /**
+     * A still-firing issue is investigated again at most once per interval; empty: once per firing cycle.
+     */
+    cooldownInterval?: string;
+    createdAt: string;
+    createdBy: string;
+    id: string;
+    /**
+     * What the trigger's investigations are asked to do after their statement; empty for none.
+     */
+    instructions: string;
+    /**
+     * At most this many of the trigger's investigations are open at once.
+     */
+    maxConcurrent: number;
+    modifiedAt: string;
+    /**
+     * The last editor; the trigger's investigations act as this user.
+     */
+    modifiedBy: string;
+    name: string;
+    /**
+     * The gcQL issue selector notification routes use.
+     */
+    query: string;
+};
+
+/**
  * InvestigatorRun is the start of a root's investigator: pending until agent-service accepts or refuses it.
  */
 export type InvestigatorRun = {
@@ -5294,6 +5330,10 @@ export type ListInvestigationProposalsResponse = {
      * Pending proposals across the root investigation, each with its reviewState, ordered by createdAt, ascending.
      */
     proposals: Array<InvestigationProposal>;
+};
+
+export type ListInvestigationTriggersResponse = {
+    triggers: Array<InvestigationTrigger>;
 };
 
 export type ListInvestigationsResponse = {
@@ -7665,7 +7705,7 @@ export type SearchDiscoveryRequest = {
     /**
      * Type specifies the type of discovery to perform.
      */
-    type: 'logs' | 'traces' | 'events' | 'issues' | 'entities' | 'apm' | 'monitors' | 'dashboards' | 'rum_events' | 'rum_sessions';
+    type: 'logs' | 'traces' | 'events' | 'issues' | 'entities' | 'apm' | 'monitors' | 'dashboards' | 'rum_events' | 'rum_sessions' | 'autonomous_infra';
 };
 
 export type SearchKeysRequest = {
@@ -10876,6 +10916,31 @@ export type WorkloadsListRequest = {
 export type WorkloadsListResponse = {
     total?: number;
     workloads?: Array<WorkloadsListItem>;
+};
+
+/**
+ * WriteTriggerRequest is a trigger's full content on create and update.
+ */
+export type WriteInvestigationTriggerRequest = {
+    /**
+     * The same values a notification route's renotificationInterval takes; empty: once per firing cycle.
+     */
+    cooldownInterval?: string;
+    /**
+     * Plain text the investigator gets after its statement; empty for none. An update saves what it sends,
+     * so one without instructions clears them.
+     */
+    instructions?: string;
+    /**
+     * At most this many of the trigger's investigations are open at once; a firing issue over the cap waits for
+     * one to close. Omitted: 100.
+     */
+    maxConcurrent?: number;
+    name: string;
+    /**
+     * The gcQL issue selector notification routes use.
+     */
+    query: string;
 };
 
 /**
