@@ -2346,6 +2346,34 @@ export type CreateDataIntegrationConfigRequest = {
 };
 
 /**
+ * CreateDecisionRequest creates and approves a proposal as one human decision.
+ */
+export type CreateDecisionRequest = {
+    /**
+     * Required for resolve and refute: exactly one per open assessment on the node, at its current revision.
+     * Not allowed for create_child and stop.
+     */
+    assessmentVerdicts?: Array<AssessmentVerdictRequest>;
+    child?: InvestigationProposalChild;
+    details: string;
+    /**
+     * Findings from the same tree; omitted means none. Each finding may appear once.
+     */
+    evidence?: Array<EvidenceRequest>;
+    /**
+     * Defaults to details when omitted or blank.
+     */
+    reason?: string;
+    /**
+     * create_child ProposalCreateChild
+     * resolve ProposalResolve
+     * refute ProposalRefute
+     * stop ProposalStop
+     */
+    type: 'create_child' | 'resolve' | 'refute' | 'stop';
+};
+
+/**
  * CreateFindingRequest uses signal and queryLanguage to identify the MCP tool for retrieving evidence.
  *
  * Queryable signals require a query: metrics uses metricsql, all other queryable signals use gcql.
