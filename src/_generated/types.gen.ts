@@ -4652,6 +4652,11 @@ export type InvestigationSubjectRef = {
      * The monitor issue's fingerprint.
      */
     issueFingerprint: string;
+    /**
+     * When the issue changed state into the firing, or a later evaluation of that firing. The investigator
+     * takes the latest firing at or before it. Not in the future.
+     */
+    issueTimestamp: string;
 };
 
 export type InvestigationTimeRange = {
