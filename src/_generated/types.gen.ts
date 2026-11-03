@@ -2090,7 +2090,7 @@ export type ConversionWarning = {
     details?: string;
     message?: string;
     originalData?: unknown;
-    severity?: Severity;
+    severity?: WarningSeverity;
     suggestions?: Array<string>;
     type?: ConversionWarningType;
     unsupported?: UnsupportedScope;
@@ -8332,11 +8332,6 @@ export type SetMemberPinsOrderRequest = {
     ids: Array<string>;
 };
 
-/**
- * Severity represents the severity level for warnings, alerts, etc.
- */
-export type Severity = string;
-
 export type Silence = {
     active?: boolean;
     comment?: string;
@@ -10638,6 +10633,12 @@ export type View = {
     uuid?: string;
     viewType?: string;
 };
+
+/**
+ * WarningSeverity grades how serious a conversion warning is. It is not a
+ * monitor severity.
+ */
+export type WarningSeverity = string;
 
 export type WebhookData = {
     /**
