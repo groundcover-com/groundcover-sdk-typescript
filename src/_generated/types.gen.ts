@@ -2274,6 +2274,7 @@ export type CreateBackendInvestigationRequest = {
      * with 429 TRIGGER_AT_CAPACITY. Omitted: no limit.
      */
     maxConcurrent?: number;
+    modelSelection?: InvestigationModelSelection;
     scope?: Array<InvestigationScopeEntry>;
     source: InvestigationBackendSource;
     statement: string;
@@ -2423,6 +2424,7 @@ export type CreateIngestionKeyRequest = {
 };
 
 export type CreateInvestigationRequest = {
+    modelSelection?: InvestigationModelSelection;
     scope?: Array<InvestigationScopeEntry>;
     statement: string;
     subject: InvestigationSubject;
@@ -4378,6 +4380,7 @@ export type Investigation = {
     instructions?: string;
     investigator?: InvestigatorRun;
     kind: 'question' | 'hypothesis';
+    modelSelection?: InvestigationModelSelection;
     outcome?: string;
     /**
      * The approved resolve, refute or stop that closed the node; for a node a stop closed below it, that stop.
@@ -4577,6 +4580,25 @@ export type InvestigationInvalidCitation = {
 };
 
 /**
+ * ModelSelection is the model agent-service runs an investigation's agents on. agent-service decides which
+ * models and efforts are allowed, and refuses a run whose selection it doesn't allow.
+ */
+export type InvestigationModelSelection = {
+    /**
+     * One of the model's capabilities.effortLevels; omitted: the model's default effort.
+     */
+    effort?: string;
+    /**
+     * A modelId that provider lists.
+     */
+    modelId: string;
+    /**
+     * A providerId from GET /api/agent/llm-provider/models.
+     */
+    providerId: string;
+};
+
+/**
  * Proposal is an immutable request for a decision on one investigation node.
  */
 export type InvestigationProposal = {
@@ -4715,6 +4737,7 @@ export type InvestigationTrigger = {
      * At most this many of the trigger's investigations are open at once.
      */
     maxConcurrent: number;
+    modelSelection?: InvestigationModelSelection;
     modifiedAt: string;
     /**
      * The last editor; the trigger's investigations act as this user.
@@ -8868,6 +8891,13 @@ export type TenantInfo = {
     UUID?: string;
 };
 
+export type TenantInvestigationsSettingsResponse = {
+    /**
+     * Whether the organization uses Investigations. Off until an admin turns it on.
+     */
+    investigationsEnabled?: boolean;
+};
+
 export type TenantResponse = {
     ClustersLimit?: number;
     OrgName?: string;
@@ -10071,6 +10101,14 @@ export type UpdateTenantConnectorSettingsRequest = {
     newConnectorsEnabledByDefault: boolean;
 };
 
+export type UpdateTenantInvestigationsSettingsRequest = {
+    /**
+     * Whether the organization uses Investigations. While off, no investigation is
+     * started, manually or automatically; existing investigations stay readable.
+     */
+    investigationsEnabled: boolean;
+};
+
 /**
  * UpdateUserCredentialRequest is the request body for updating a user-level credential.
  */
@@ -10982,6 +11020,7 @@ export type WriteInvestigationTriggerRequest = {
      * one to close. Omitted: 100.
      */
     maxConcurrent?: number;
+    modelSelection?: InvestigationModelSelection;
     name: string;
     /**
      * The gcQL issue selector notification routes use.
