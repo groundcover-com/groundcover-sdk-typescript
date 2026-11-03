@@ -3759,6 +3759,10 @@ export type ExportTimeRange = {
     timezone?: string;
 };
 
+export type FeaturePermissionCatalogue = {
+    [key: string]: Array<'no_access' | 'view' | 'edit'>;
+};
+
 export type FetchAssetsRequest = {
     /**
      * The types of assets to fetch. If empty, all asset types will be fetched.
@@ -7009,6 +7013,13 @@ export type PatternParamDistributionValue = {
 };
 
 /**
+ * Permissions contains explicit overrides only; a missing feature inherits legacy authorization.
+ */
+export type Permissions = {
+    [key: string]: 'no_access' | 'view' | 'edit';
+};
+
+/**
  * PinViewRequest is the body of POST /api/views/{id}/pin.
  */
 export type PinViewRequest = {
@@ -7057,6 +7068,7 @@ export type Policy = {
      * Optional description of the policy.
      */
     description?: string;
+    featurePermissions?: Permissions;
     /**
      * Name of the policy.
      */
@@ -11156,6 +11168,7 @@ export type PolicyWritable = {
      * Optional description of the policy.
      */
     description?: string;
+    featurePermissions?: Permissions;
     /**
      * Name of the policy.
      */
