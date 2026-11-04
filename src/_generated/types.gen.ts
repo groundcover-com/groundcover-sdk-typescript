@@ -1024,6 +1024,21 @@ export type AssociatedRequestV2 = {
 };
 
 /**
+ * AttachSyncTargetRequest attaches a Slack thread to a root, so the root's updates are posted there.
+ */
+export type AttachInvestigationSyncTargetRequest = {
+    /**
+     * The comm-hub org connector that posts to the thread.
+     */
+    connectorId: string;
+    destination: InvestigationSlackDestination;
+    /**
+     * slack SyncTargetProviderSlack
+     */
+    provider: 'slack';
+};
+
+/**
  * PutWorkloadsConfigRequest sets AutoInfra on a batch of workloads.
  */
 export type AutoInfraPutWorkloadsConfigRequest = {
@@ -2271,7 +2286,7 @@ export type CreateBackendInvestigationRequest = {
     instructions?: string;
     /**
      * At most this many of the trigger's roots may be open: at the cap, a root for a new subject is refused
-     * with 429 TRIGGER_AT_CAPACITY. Omitted: no limit.
+     * with 429 TRIGGER_AT_CAPACITY. Omitted: no limit. Only for an automation source.
      */
     maxConcurrent?: number;
     modelSelection?: InvestigationModelSelection;
@@ -2351,20 +2366,19 @@ export type CreateDataIntegrationConfigRequest = {
  */
 export type CreateDecisionRequest = {
     /**
-     * Required for resolve and refute: exactly one per open assessment on the node, at its current revision.
-     * Not allowed for create_child and stop.
+     * Optional verdicts for resolve and refute, at each assessment's current revision.
+     * Omitted open assessments remain unjudged. Not allowed for create_child and stop.
      */
     assessmentVerdicts?: Array<AssessmentVerdictRequest>;
     child?: InvestigationProposalChild;
-    details: string;
     /**
-     * Findings from the same tree; omitted means none. Each finding may appear once.
+     * Defaults to "Decided by user." when omitted or blank.
+     */
+    details?: string;
+    /**
+     * Optional findings from the same tree. Each finding may appear once.
      */
     evidence?: Array<EvidenceRequest>;
-    /**
-     * Defaults to details when omitted or blank.
-     */
-    reason?: string;
     /**
      * create_child ProposalCreateChild
      * resolve ProposalResolve
@@ -2560,6 +2574,7 @@ export type CreatePolicyRequest = {
      * Optional description for the policy.
      */
     description?: string;
+    featurePermissions?: Permissions;
     /**
      * Name of the policy.
      */
@@ -3163,6 +3178,11 @@ export type DecideProposalRequest = {
     reason: string;
 };
 
+export type Definition = {
+    defaults?: RoleDefaults;
+    permissions?: Array<'no_access' | 'view' | 'edit'>;
+};
+
 export type DeleteIngestionKeyRequest = {
     /**
      * Name of the ingestion key to delete
@@ -3369,7 +3389,7 @@ export type EnvType = string;
  * (message + machine-readable code + trace_id, plus optional metadata).
  */
 export type ErrorResponse = {
-    code?: 'EXCEEDED_MAX_ROWS_TO_GROUP_BY' | 'MONITOR_EVAL_FAILED' | 'MONITOR_VALIDATION_FAILED' | 'MONITOR_DUPLICATE_TITLE' | 'CONNECTED_APP_IN_USE' | 'VIEW_REVISION_CONFLICT' | 'CONNECTED_APP_ORPHANED_SECRET' | 'INVALID_ARGUMENT' | 'INVESTIGATION_EXISTS' | 'TRIGGER_AT_CAPACITY' | 'RUN_IDENTITY_REQUIRED' | 'INVESTIGATION_CLOSED' | 'FINDING_OUT_OF_SCOPE' | 'FINDING_RETRACTED' | 'NOT_AUTHOR' | 'INVESTIGATION_GRAMMAR' | 'EVIDENCE_REQUIRED' | 'REFUTE_REQUIRES_HYPOTHESIS';
+    code?: 'EXCEEDED_MAX_ROWS_TO_GROUP_BY' | 'MONITOR_EVAL_FAILED' | 'MONITOR_VALIDATION_FAILED' | 'MONITOR_DUPLICATE_TITLE' | 'CONNECTED_APP_IN_USE' | 'VIEW_REVISION_CONFLICT' | 'CONNECTED_APP_ORPHANED_SECRET' | 'INVALID_ARGUMENT' | 'INVESTIGATION_EXISTS' | 'SYNC_TARGET_TAKEN' | 'TRIGGER_AT_CAPACITY' | 'RUN_IDENTITY_REQUIRED' | 'INVESTIGATIONS_DISABLED' | 'INVESTIGATION_CLOSED' | 'FINDING_OUT_OF_SCOPE' | 'FINDING_RETRACTED' | 'NOT_AUTHOR' | 'INVESTIGATION_GRAMMAR' | 'EVIDENCE_REQUIRED' | 'REFUTE_REQUIRES_HYPOTHESIS';
     details?: unknown;
     docs_url?: string;
     message?: string;
@@ -3762,7 +3782,7 @@ export type ExportTimeRange = {
 };
 
 export type FeaturePermissionCatalogue = {
-    [key: string]: Array<'no_access' | 'view' | 'edit'>;
+    [key: string]: Definition;
 };
 
 export type FetchAssetsRequest = {
@@ -4482,11 +4502,12 @@ export type InvestigationAuthor = {
 };
 
 /**
- * BackendSource is the source a backend caller opens a root from.
+ * BackendSource is the source a backend caller opens a root from: an automation trigger, or the Slack thread whose
+ * Investigate button was clicked.
  */
 export type InvestigationBackendSource = {
     ref: InvestigationSourceRef;
-    type: 'automation';
+    type: 'automation' | 'slack';
 };
 
 /**
@@ -4496,7 +4517,7 @@ export type InvestigationEvent = {
     author: InvestigationAuthor;
     createdAt: string;
     entityId: string;
-    entityType: 'investigation' | 'participant' | 'finding' | 'assessment' | 'proposal' | 'investigator' | 'moderator';
+    entityType: 'investigation' | 'participant' | 'finding' | 'assessment' | 'proposal' | 'investigator' | 'moderator' | 'sync_target';
     id: string;
     investigationId: string;
     /**
@@ -4505,7 +4526,7 @@ export type InvestigationEvent = {
     payload: {
         [key: string]: unknown;
     };
-    type: 'investigation.opened' | 'investigation.closed' | 'participant.joined' | 'finding.created' | 'finding.retracted' | 'assessment.updated' | 'assessment.judged' | 'proposal.created' | 'proposal.deferred' | 'proposal.approved' | 'proposal.rejected' | 'proposal.superseded' | 'investigator.run_rejected' | 'investigator.run_requested' | 'moderator.run_rejected' | 'moderator.run_limit_reached';
+    type: 'investigation.opened' | 'investigation.closed' | 'participant.joined' | 'finding.created' | 'finding.retracted' | 'assessment.updated' | 'assessment.judged' | 'proposal.created' | 'proposal.deferred' | 'proposal.approved' | 'proposal.rejected' | 'proposal.superseded' | 'investigator.run_rejected' | 'investigator.run_requested' | 'moderator.run_rejected' | 'moderator.run_limit_reached' | 'sync_target.attached';
 };
 
 export type InvestigationEvidence = {
@@ -4679,18 +4700,41 @@ export type InvestigationScopeEntry = {
 };
 
 /**
+ * SlackDestination is a Slack thread: the alert message's channel and ts.
+ */
+export type InvestigationSlackDestination = {
+    channelId: string;
+    threadTs: string;
+};
+
+/**
  * Source is how a root started: manual on the public create route, or what a backend caller opened it from.
  */
 export type InvestigationSource = {
     ref?: InvestigationSourceRef;
-    type: 'manual' | 'automation';
+    type: 'manual' | 'automation' | 'slack';
 };
 
+/**
+ * SourceRef holds the fields of every source type; each type requires its own and refuses the others.
+ */
 export type InvestigationSourceRef = {
     /**
-     * The automation trigger that opened the root.
+     * slack: the channel of the alert thread whose Investigate button opened the root.
      */
-    triggerId: string;
+    channelId?: string;
+    /**
+     * slack: the comm-hub org connector the alert was posted with.
+     */
+    connectorId?: string;
+    /**
+     * slack: the ts of that thread's alert message.
+     */
+    threadTs?: string;
+    /**
+     * automation: the trigger that opened the root.
+     */
+    triggerId?: string;
 };
 
 /**
@@ -4711,6 +4755,26 @@ export type InvestigationSubjectRef = {
      * takes the latest firing at or before it. Not in the future.
      */
     issueTimestamp: string;
+};
+
+/**
+ * SyncTargetAttachment answers an attach: the root and what became of the thread.
+ */
+export type InvestigationSyncTargetAttachment = {
+    investigationId: string;
+    /**
+     * attached: the thread is now the root's target, and catches up from the root's first event.
+     * already_attached: it already was. attached_to_another_root: another root, such as an earlier, closed
+     * root of the issue, owns the thread and keeps it, so this root does not sync there.
+     * attached SyncTargetAttached  SyncTargetAttached added a new target to the root.
+     * already_attached SyncTargetAlreadyAttached  SyncTargetAlreadyAttached found the destination attached to this root already.
+     * attached_to_another_root SyncTargetAttachedToAnotherRoot  SyncTargetAttachedToAnotherRoot found the destination attached to another root, where it stays.
+     */
+    outcome: 'attached' | 'already_attached' | 'attached_to_another_root';
+    /**
+     * The root that owns the thread; set with attached_to_another_root.
+     */
+    ownerInvestigationId?: string;
 };
 
 export type InvestigationTimeRange = {
@@ -7527,6 +7591,13 @@ export type RevisionEntry = {
 };
 
 /**
+ * RoleDefaults are form presets; backend configuration and legacy checks still determine inherited access.
+ */
+export type RoleDefaults = {
+    [key: string]: 'no_access' | 'view' | 'edit';
+};
+
+/**
  * RoleMap defines the mapping of roles to permissions.
  *
  * It is used within a Policy.
@@ -8685,6 +8756,13 @@ export type SupportedNotConvertedBucket = {
         [key: string]: number;
     };
     total?: number;
+};
+
+/**
+ * SyncTargetTakenDetails is the details of a 409 SYNC_TARGET_TAKEN: the root that follows the thread.
+ */
+export type SyncTargetTakenDetails = {
+    ownerInvestigationId: string;
 };
 
 /**
@@ -10007,6 +10085,7 @@ export type UpdatePolicyRequest = {
      * Optional new description for the policy.
      */
     description?: string;
+    featurePermissions?: Permissions;
     /**
      * New name for the policy.
      */
@@ -10103,8 +10182,8 @@ export type UpdateTenantConnectorSettingsRequest = {
 
 export type UpdateTenantInvestigationsSettingsRequest = {
     /**
-     * Whether the organization uses Investigations. While off, no investigation is
-     * started, manually or automatically; existing investigations stay readable.
+     * Whether the organization uses Investigations. While off, the investigation and
+     * trigger APIs and tools refuse changes; reads stay available and nothing stored is deleted.
      */
     investigationsEnabled: boolean;
 };
