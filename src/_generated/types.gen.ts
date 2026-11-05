@@ -1599,6 +1599,7 @@ export type Condition = {
 
 export type ConfigBase = {
     enabled?: boolean;
+    excludedClusters?: Array<string>;
     /**
      * Deprecated: Exporters field is no longer used but kept for backward compatibility
      * to prevent parsing errors from clients that still send it.
@@ -8816,6 +8817,7 @@ export type SyntheticMonitorEvalInterval = {
 export type SyntheticTestConfig = {
     checkConfig?: WorkerRequest;
     enabled?: boolean;
+    excludedClusters?: Array<string>;
     /**
      * Deprecated: Exporters field is no longer used but kept for backward compatibility
      * to prevent parsing errors from clients that still send it.
@@ -8838,6 +8840,7 @@ export type SyntheticTestCreateRequest = {
      */
     createMonitor?: boolean;
     enabled?: boolean;
+    excludedClusters?: Array<string>;
     /**
      * Deprecated: Exporters field is no longer used but kept for backward compatibility
      * to prevent parsing errors from clients that still send it.
