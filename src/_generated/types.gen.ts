@@ -3372,6 +3372,13 @@ export type DropConfig = {
  */
 export type Duration = number;
 
+/**
+ * EffectiveFeaturePermissions contains role defaults with consolidated policy overrides applied.
+ */
+export type EffectiveFeaturePermissions = {
+    [key: string]: 'no_access' | 'view' | 'edit';
+};
+
 export type Endpoint = {
     domain?: string;
     is_public?: boolean;
@@ -6084,7 +6091,7 @@ export type MemberViewsRequest = {
 export type MemberWithRoleResponse = {
     Created?: string;
     Email?: string;
-    FeaturePermissions?: Permissions;
+    FeaturePermissions?: EffectiveFeaturePermissions;
     FirstLogin?: string;
     LastSeen?: string;
     Owner?: boolean;
@@ -7110,7 +7117,7 @@ export type PatternParamDistributionValue = {
 };
 
 /**
- * Permissions maps features to access levels. In policy overrides, a missing feature inherits legacy authorization.
+ * Permissions contains explicit overrides only; a missing feature uses role authorization.
  */
 export type Permissions = {
     [key: string]: 'no_access' | 'view' | 'edit';
