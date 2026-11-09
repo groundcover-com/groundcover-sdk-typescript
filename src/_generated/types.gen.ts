@@ -6084,6 +6084,7 @@ export type MemberViewsRequest = {
 export type MemberWithRoleResponse = {
     Created?: string;
     Email?: string;
+    FeaturePermissions?: Permissions;
     FirstLogin?: string;
     LastSeen?: string;
     Owner?: boolean;
@@ -7109,7 +7110,7 @@ export type PatternParamDistributionValue = {
 };
 
 /**
- * Permissions contains explicit overrides only; a missing feature inherits legacy authorization.
+ * Permissions maps features to access levels. In policy overrides, a missing feature inherits legacy authorization.
  */
 export type Permissions = {
     [key: string]: 'no_access' | 'view' | 'edit';
