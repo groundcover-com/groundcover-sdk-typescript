@@ -2292,6 +2292,10 @@ export type CreateBackendInvestigationRequest = {
     maxConcurrent?: number;
     modelSelection?: InvestigationModelSelection;
     scope?: Array<InvestigationScopeEntry>;
+    /**
+     * true opens the root without starting groundcover's investigator; start it later with startInvestigator.
+     */
+    skipInvestigator?: boolean;
     source: InvestigationBackendSource;
     statement: string;
     subject: InvestigationSubject;
@@ -2441,6 +2445,10 @@ export type CreateIngestionKeyRequest = {
 export type CreateInvestigationRequest = {
     modelSelection?: InvestigationModelSelection;
     scope?: Array<InvestigationScopeEntry>;
+    /**
+     * true opens the root without starting groundcover's investigator; start it later with startInvestigator.
+     */
+    skipInvestigator?: boolean;
     statement: string;
     subject: InvestigationSubject;
     timeRange?: InvestigationTimeRange;
@@ -3390,7 +3398,7 @@ export type EnvType = string;
  * (message + machine-readable code + trace_id, plus optional metadata).
  */
 export type ErrorResponse = {
-    code?: 'EXCEEDED_MAX_ROWS_TO_GROUP_BY' | 'MONITOR_EVAL_FAILED' | 'MONITOR_VALIDATION_FAILED' | 'MONITOR_DUPLICATE_TITLE' | 'CONNECTED_APP_IN_USE' | 'VIEW_REVISION_CONFLICT' | 'CONNECTED_APP_ORPHANED_SECRET' | 'INVALID_ARGUMENT' | 'INVESTIGATION_EXISTS' | 'SYNC_TARGET_TAKEN' | 'TRIGGER_AT_CAPACITY' | 'RUN_IDENTITY_REQUIRED' | 'INVESTIGATIONS_DISABLED' | 'INVESTIGATION_CLOSED' | 'FINDING_OUT_OF_SCOPE' | 'FINDING_RETRACTED' | 'NOT_AUTHOR' | 'INVESTIGATION_GRAMMAR' | 'EVIDENCE_REQUIRED' | 'REFUTE_REQUIRES_HYPOTHESIS';
+    code?: 'EXCEEDED_MAX_ROWS_TO_GROUP_BY' | 'MONITOR_EVAL_FAILED' | 'MONITOR_VALIDATION_FAILED' | 'MONITOR_DUPLICATE_TITLE' | 'CONNECTED_APP_IN_USE' | 'VIEW_REVISION_CONFLICT' | 'CONNECTED_APP_ORPHANED_SECRET' | 'INVALID_ARGUMENT' | 'INVESTIGATION_EXISTS' | 'SYNC_TARGET_TAKEN' | 'TRIGGER_AT_CAPACITY' | 'RUN_IDENTITY_REQUIRED' | 'INVESTIGATIONS_DISABLED' | 'INVESTIGATION_CLOSED' | 'FINDING_OUT_OF_SCOPE' | 'FINDING_RETRACTED' | 'NOT_AUTHOR' | 'INVESTIGATION_GRAMMAR' | 'EVIDENCE_REQUIRED' | 'REFUTE_REQUIRES_HYPOTHESIS' | 'HYPOTHESIS_REQUIRED';
     details?: unknown;
     docs_url?: string;
     message?: string;
@@ -4527,7 +4535,7 @@ export type InvestigationEvent = {
     payload: {
         [key: string]: unknown;
     };
-    type: 'investigation.opened' | 'investigation.closed' | 'participant.joined' | 'finding.created' | 'finding.retracted' | 'assessment.updated' | 'assessment.judged' | 'proposal.created' | 'proposal.deferred' | 'proposal.approved' | 'proposal.rejected' | 'proposal.superseded' | 'investigator.run_rejected' | 'investigator.run_requested' | 'moderator.run_rejected' | 'moderator.run_limit_reached' | 'sync_target.attached';
+    type: 'investigation.opened' | 'investigation.closed' | 'participant.joined' | 'finding.created' | 'finding.retracted' | 'assessment.updated' | 'assessment.judged' | 'proposal.created' | 'proposal.deferred' | 'proposal.approved' | 'proposal.rejected' | 'proposal.superseded' | 'investigator.run_rejected' | 'investigator.run_requested' | 'investigator.run_started' | 'investigator.run_ended' | 'moderator.run_rejected' | 'moderator.run_limit_reached' | 'sync_target.attached';
 };
 
 export type InvestigationEvidence = {
