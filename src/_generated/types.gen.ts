@@ -2397,7 +2397,8 @@ export type CreateDecisionRequest = {
  * CreateFindingRequest uses signal and queryLanguage to identify the MCP tool for retrieving evidence.
  *
  * Queryable signals require a query: metrics uses metricsql, all other queryable signals use gcql.
- * Link and other findings require a URL and do not accept queries. A queryable finding may include a supplemental URL.
+ * Code, link and other findings require a URL and do not accept queries; a code URL is a permalink pinned to a commit.
+ * A queryable finding may include a supplemental URL.
  */
 export type CreateFindingRequest = {
     details: string;
@@ -2415,10 +2416,11 @@ export type CreateFindingRequest = {
      * profiling SignalProfiling
      * rum SignalRUM
      * db_measurements SignalDBMeasurements
+     * code SignalCode
      * link SignalLink
      * other SignalOther
      */
-    signal: 'logs' | 'traces' | 'metrics' | 'events' | 'entities' | 'issues' | 'monitors' | 'k8s' | 'profiling' | 'rum' | 'db_measurements' | 'link' | 'other';
+    signal: 'logs' | 'traces' | 'metrics' | 'events' | 'entities' | 'issues' | 'monitors' | 'k8s' | 'profiling' | 'rum' | 'db_measurements' | 'code' | 'link' | 'other';
     timeRange?: InvestigationTimeRange;
     url?: string;
 };
@@ -4596,10 +4598,11 @@ export type InvestigationFinding = {
      * profiling SignalProfiling
      * rum SignalRUM
      * db_measurements SignalDBMeasurements
+     * code SignalCode
      * link SignalLink
      * other SignalOther
      */
-    signal: 'logs' | 'traces' | 'metrics' | 'events' | 'entities' | 'issues' | 'monitors' | 'k8s' | 'profiling' | 'rum' | 'db_measurements' | 'link' | 'other';
+    signal: 'logs' | 'traces' | 'metrics' | 'events' | 'entities' | 'issues' | 'monitors' | 'k8s' | 'profiling' | 'rum' | 'db_measurements' | 'code' | 'link' | 'other';
     timeRange?: InvestigationTimeRange;
     url?: string;
 };
