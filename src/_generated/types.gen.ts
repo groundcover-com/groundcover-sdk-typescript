@@ -4461,6 +4461,10 @@ export type InvestigationAssessment = {
      * Starts at 1; every update adds one.
      */
     revision: number;
+    /**
+     * The assessment's heading; absent when it has none.
+     */
+    title?: string;
     updatedAt: string;
     /**
      * Set from the approved conclusion's verdict on this revision; an update resets it to open.
@@ -8427,6 +8431,10 @@ export type SetAssessmentRequest = {
      * The full set of citations, each finding at most once; [] means none.
      */
     evidence: Array<EvidenceRequest>;
+    /**
+     * Optional one-line plain-text heading for the assessment, at most 120 characters.
+     */
+    title?: string;
 };
 
 /**
