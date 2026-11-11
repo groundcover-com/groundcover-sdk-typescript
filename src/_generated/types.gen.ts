@@ -5455,7 +5455,7 @@ export type ListInvestigationFindingsResponse = {
      */
     done: boolean;
     /**
-     * Full findings across the root investigation, ordered by createdAt, ascending.
+     * Full findings across the root investigation, or the ones ids names, ordered by createdAt, ascending.
      */
     findings: Array<InvestigationFinding>;
     /**
