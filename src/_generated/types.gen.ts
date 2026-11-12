@@ -3176,6 +3176,20 @@ export type DataIntegrationConfig = {
     updated_by?: string;
 };
 
+export type DataIntegrationSummary = {
+    cluster?: string;
+    id?: string;
+    is_archived?: boolean;
+    is_paused?: boolean;
+    name?: string;
+    tags?: {
+        [key: string]: unknown;
+    };
+    type?: string;
+    update_timestamp?: string;
+    updated_by?: string;
+};
+
 /**
  * DataScope contains either simple or advanced scope definitions.
  */
