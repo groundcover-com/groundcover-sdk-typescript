@@ -1244,6 +1244,37 @@ export type BatchUpdateDashboardTagsRequest = {
     tagsToRemove?: Array<string>;
 };
 
+export type BatchUpdateMonitorTagsV2Error = {
+    id?: string;
+    reason?: string;
+};
+
+export type BatchUpdateMonitorTagsV2Request = {
+    monitorUuids: Array<string>;
+    /**
+     * Tags to add to each monitor. Entries are trimmed and exact-case
+     * deduplicated. At least one of tagsToAdd or tagsToRemove must be non-empty
+     * after that, and the two lists must not share a tag (400 otherwise). A
+     * monitor may carry at most 20 tags afterwards (reported per monitor), so at
+     * most 20 distinct tags can be added.
+     */
+    tagsToAdd?: Array<string>;
+    /**
+     * Tags to remove from each monitor. Same rules as tagsToAdd; removing a tag
+     * a monitor does not carry is a no-op.
+     */
+    tagsToRemove?: Array<string>;
+};
+
+export type BatchUpdateMonitorTagsV2Response = {
+    errors?: Array<BatchUpdateMonitorTagsV2Error>;
+    failedCount?: number;
+    /**
+     * Every monitor not in errors, including those whose tags already matched.
+     */
+    updatedCount?: number;
+};
+
 export type BucketDurationSeconds = number;
 
 /**
@@ -10459,7 +10490,7 @@ export type V2MonitorSpec = {
      */
     severity?: string;
     /**
-     * Tags are free-form; items must not be blank.
+     * Tags are free-form; items must not be blank. At most MaxTags (20).
      */
     tags?: Array<string>;
     team?: string;
