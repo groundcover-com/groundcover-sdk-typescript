@@ -3902,6 +3902,7 @@ export type Finding = {
     };
     field_name?: string;
     integration?: string;
+    issue_id?: string;
     issue_type?: IssueType;
     label_key?: string;
     /**
