@@ -7405,6 +7405,91 @@ export type ProfilingPeriod = {
 };
 
 /**
+ * ProfilingRuleListResponse is a list of profiling rules.
+ */
+export type ProfilingRuleListResponse = {
+    rules?: Array<ProfilingRuleResponse>;
+};
+
+/**
+ * ProfilingRuleRequest creates or replaces a profiling rule.
+ */
+export type ProfilingRuleRequest = {
+    /**
+     * Why the rule exists; at most 500 characters.
+     */
+    description?: string;
+    /**
+     * How long the rule applies from this request, as a Go duration such as
+     * "30m" or "2h"; at least 5m. Mutually exclusive with expiresAt.
+     */
+    duration?: string;
+    /**
+     * When the rule stops applying; at least 5m from now. Mutually exclusive
+     * with duration; with neither, the rule applies until deleted.
+     */
+    expiresAt?: string;
+    /**
+     * gcQL over namespace, workload, container_name, pod_name, node and
+     * node_pool, such as `namespace:shop workload:checkout-*` or
+     * `pod_name:checkout-7d9f8-*`. `*` selects every container.
+     */
+    filter: string;
+    scope: ProfilingRuleScope;
+    /**
+     * At most 20 tags.
+     */
+    tags?: {
+        [key: string]: string;
+    };
+};
+
+/**
+ * ProfilingRuleResponse is a stored profiling rule.
+ */
+export type ProfilingRuleResponse = {
+    createdAt?: string;
+    createdBy?: string;
+    description?: string;
+    /**
+     * Absent when the rule applies until deleted.
+     */
+    expiresAt?: string;
+    filter?: string;
+    id?: string;
+    /**
+     * How the rule was created: ui, api, terraform or agent.
+     */
+    origin?: 'ui' | 'api' | 'terraform' | 'agent';
+    scope?: ProfilingRuleScope;
+    /**
+     * active or expired.
+     */
+    status?: 'active' | 'expired';
+    tags?: {
+        [key: string]: string;
+    };
+    updatedAt?: string;
+    updatedBy?: string;
+};
+
+/**
+ * ProfilingRuleScope is where a rule applies: "*" for both env and cluster
+ * means every cluster; otherwise one env and cluster pair a sensor has
+ * reported from.
+ */
+export type ProfilingRuleScope = {
+    /**
+     * The cluster, or "*".
+     */
+    cluster: string;
+    /**
+     * The env, or "*". An empty env is a cluster installed without one.
+     */
+    env: string;
+};
+
+/**
  * StackCounts counts aggregated stacks, not samples or rendered tree nodes.
  */
 export type ProfilingStackCounts = {
@@ -11431,6 +11516,8 @@ export type CreateUpdateTracesPipelineConfigRequest2 = CreateUpdateTracesPipelin
 
 export type CreateUpdateMetricsPipelineConfigRequest2 = CreateUpdateMetricsPipelineConfigRequest;
 
+export type ProfilingRuleRequest2 = ProfilingRuleRequest;
+
 export type AgentListSkillsData = {
     body?: never;
     path?: never;
@@ -14564,6 +14651,259 @@ export type GetProfilingFlamegraphDiffResponses = {
 };
 
 export type GetProfilingFlamegraphDiffResponse = GetProfilingFlamegraphDiffResponses[keyof GetProfilingFlamegraphDiffResponses];
+
+export type ListProfilingRulesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Rules that apply in this env, including rules for every cluster.
+         */
+        env?: string;
+        /**
+         * Rules that apply in this cluster, including rules for every cluster.
+         */
+        cluster?: string;
+        /**
+         * active or expired; both when absent.
+         */
+        status?: 'active' | 'expired';
+    };
+    url: '/api/profiling/v1/rules';
+};
+
+export type ListProfilingRulesErrors = {
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    400: {
+        message?: string;
+    };
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    403: {
+        message?: string;
+    };
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    404: {
+        message?: string;
+    };
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    500: {
+        message?: string;
+    };
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    503: {
+        message?: string;
+    };
+};
+
+export type ListProfilingRulesError = ListProfilingRulesErrors[keyof ListProfilingRulesErrors];
+
+export type ListProfilingRulesResponses = {
+    200: ProfilingRuleListResponse;
+};
+
+export type ListProfilingRulesResponse = ListProfilingRulesResponses[keyof ListProfilingRulesResponses];
+
+export type CreateProfilingRuleData = {
+    body: ProfilingRuleRequest2;
+    path?: never;
+    query?: never;
+    url: '/api/profiling/v1/rules';
+};
+
+export type CreateProfilingRuleErrors = {
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    400: {
+        message?: string;
+    };
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    403: {
+        message?: string;
+    };
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    404: {
+        message?: string;
+    };
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    500: {
+        message?: string;
+    };
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    501: {
+        message?: string;
+    };
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    503: {
+        message?: string;
+    };
+};
+
+export type CreateProfilingRuleError = CreateProfilingRuleErrors[keyof CreateProfilingRuleErrors];
+
+export type CreateProfilingRuleResponses = {
+    201: ProfilingRuleResponse;
+};
+
+export type CreateProfilingRuleResponse = CreateProfilingRuleResponses[keyof CreateProfilingRuleResponses];
+
+export type DeleteProfilingRuleData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/profiling/v1/rules/{id}';
+};
+
+export type DeleteProfilingRuleErrors = {
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    403: {
+        message?: string;
+    };
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    404: {
+        message?: string;
+    };
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    500: {
+        message?: string;
+    };
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    503: {
+        message?: string;
+    };
+};
+
+export type DeleteProfilingRuleError = DeleteProfilingRuleErrors[keyof DeleteProfilingRuleErrors];
+
+export type DeleteProfilingRuleResponses = {
+    204: void;
+};
+
+export type DeleteProfilingRuleResponse = DeleteProfilingRuleResponses[keyof DeleteProfilingRuleResponses];
+
+export type GetProfilingRuleData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/profiling/v1/rules/{id}';
+};
+
+export type GetProfilingRuleErrors = {
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    403: {
+        message?: string;
+    };
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    404: {
+        message?: string;
+    };
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    500: {
+        message?: string;
+    };
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    503: {
+        message?: string;
+    };
+};
+
+export type GetProfilingRuleError = GetProfilingRuleErrors[keyof GetProfilingRuleErrors];
+
+export type GetProfilingRuleResponses = {
+    200: ProfilingRuleResponse;
+};
+
+export type GetProfilingRuleResponse = GetProfilingRuleResponses[keyof GetProfilingRuleResponses];
+
+export type UpdateProfilingRuleData = {
+    body: ProfilingRuleRequest2;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/profiling/v1/rules/{id}';
+};
+
+export type UpdateProfilingRuleErrors = {
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    400: {
+        message?: string;
+    };
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    403: {
+        message?: string;
+    };
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    404: {
+        message?: string;
+    };
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    500: {
+        message?: string;
+    };
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    503: {
+        message?: string;
+    };
+};
+
+export type UpdateProfilingRuleError = UpdateProfilingRuleErrors[keyof UpdateProfilingRuleErrors];
+
+export type UpdateProfilingRuleResponses = {
+    200: ProfilingRuleResponse;
+};
+
+export type UpdateProfilingRuleResponse = UpdateProfilingRuleResponses[keyof UpdateProfilingRuleResponses];
 
 export type DeleteApiKeyData = {
     body?: never;
