@@ -1173,6 +1173,41 @@ export type BaseQuery = {
     sqlPipeline?: SqlPipeline;
 };
 
+/**
+ * BatchCreateMonitorsV2Error is one failed item, with the single-create error's
+ * message, code and details.
+ */
+export type BatchCreateMonitorsV2Error = {
+    code?: string;
+    details?: unknown;
+    /**
+     * Position of the item in the request's monitors list.
+     */
+    index?: number;
+    message?: string;
+    name?: string;
+};
+
+/**
+ * BatchCreateMonitorsV2Request is the POST /api/v2/monitors/batch/create body.
+ */
+export type BatchCreateMonitorsV2Request = {
+    /**
+     * Each item is a POST /api/v2/monitors body.
+     */
+    monitors: Array<CreateMonitorV2Request>;
+};
+
+export type BatchCreateMonitorsV2Response = {
+    createdCount?: number;
+    /**
+     * UUIDs minted for the created monitors, in request order.
+     */
+    createdUuids?: Array<string>;
+    errors?: Array<BatchCreateMonitorsV2Error>;
+    failedCount?: number;
+};
+
 export type BatchDashboardsError = {
     /**
      * Code mirrors the single-route ErrorResponse.code contract so the UI can
@@ -2583,6 +2618,21 @@ export type CreateMonitorResponse = {
     monitorId?: string;
 };
 
+/**
+ * CreateMonitorV2Request is the POST /api/v2/monitors body; the uuid is
+ * minted server-side (a client-owned identity uses PUT /{uuid}).
+ */
+export type CreateMonitorV2Request = {
+    isProvisioned?: boolean;
+    originId?: string;
+    /**
+     * Origin has server-side behaviour (synthetics, migrations), so only
+     * Catalog with a known catalog entry id is accepted from clients.
+     */
+    originType?: string;
+    spec?: V2MonitorSpec;
+};
+
 export type CreateNotificationRouteRequest = {
     /**
      * The name of the notification route
@@ -3301,6 +3351,11 @@ export type DisplayModel = {
 
 export type DistibutedTraceResponse = {
     count?: number;
+    /**
+     * FocusedSpanID is the span the UI opens in place of the clicked eBPF span when the
+     * waterfall falls back to the trace's instrumented spans.
+     */
+    focusedSpanId?: string;
     limitReached?: boolean;
     nodes?: Array<DistributedTraceNode>;
 };
@@ -3361,6 +3416,11 @@ export type DistributedTracesRequest = {
     limit?: number;
     sourceType?: string;
     sources?: Array<Condition>;
+    /**
+     * SpanID is the clicked span. The waterfall returns it alone when the trace has no
+     * instrumented spans and eBPF trace stitching is off.
+     */
+    spanId?: string;
     time?: string;
     traceId?: string;
 };
