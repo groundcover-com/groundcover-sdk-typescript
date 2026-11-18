@@ -9192,7 +9192,7 @@ export type TenantInfo = {
 
 export type TenantInvestigationsSettingsResponse = {
     /**
-     * Whether the organization uses Investigations. Off until an admin turns it on.
+     * Whether the organization uses Investigations. Off until an authorized user turns it on.
      */
     investigationsEnabled?: boolean;
 };
