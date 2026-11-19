@@ -776,6 +776,10 @@ export type AssetItem = {
 
 export type AssetListItem = {
     /**
+     * UUID of this asset row in the migration. Rediscovery can assign a new UUID to the same source asset.
+     */
+    asset_id?: string;
+    /**
      * The conversion status of the asset.
      */
     conversion_status?: string;
@@ -5600,6 +5604,17 @@ export type ListInvestigationsResponse = {
     investigations: Array<Investigation>;
 };
 
+/**
+ * ListIssuesResponse is an ordered page and the exact total under the filters.
+ */
+export type ListIssuesResponse = {
+    has_more: boolean;
+    issues: Array<MigrationIssue>;
+    limit: number;
+    offset: number;
+    total: number;
+};
+
 export type ListMigrationCloudIntegrationsResponse = {
     /**
      * The list of cloud integrations.
@@ -6613,6 +6628,46 @@ export type MigrationDetectedIntegration = {
      * The number of metrics detected for this integration.
      */
     metricCount: number;
+};
+
+/**
+ * Issue is an open migration issue with its distinct eligible asset count.
+ */
+export type MigrationIssue = {
+    asset_count: number;
+    category: string;
+    datasource: string;
+    evidence: {
+        [key: string]: string;
+    } | null;
+    field_name: string;
+    finding_type: 'missing_metric' | 'missing_key' | 'missing_value' | 'no_data';
+    integration: string;
+    issue_id: string;
+    label_key: string;
+    label_key_dd: string;
+    label_value: string;
+    label_value_dd: string;
+    message: string;
+    severity: string;
+    subject: MigrationIssueSubject;
+    suggestions: Array<MigrationIssueSuggestion>;
+};
+
+/**
+ * IssueSubject identifies the subject on both sides of the migration.
+ */
+export type MigrationIssueSubject = {
+    name_dd: string;
+    name_gc: string;
+};
+
+/**
+ * IssueSuggestion is a candidate mapping for a migration issue.
+ */
+export type MigrationIssueSuggestion = {
+    type: string;
+    value: string;
 };
 
 /**
@@ -8711,46 +8766,6 @@ export type SlackChannelPickerChannel = {
 export type SlackChannelsResponse = {
     channels?: Array<SlackChannelPickerChannel>;
     next_cursor?: string;
-};
-
-/**
- * SlackChatPostMessageRequest is the Slack chat.postMessage request payload
- * accepted by the Slack provider proxy.
- */
-export type SlackChatPostMessageRequest = {
-    /**
-     * Optional Slack attachments payload.
-     */
-    attachments?: {
-        [key: string]: unknown;
-    };
-    /**
-     * Optional Slack Block Kit payload.
-     */
-    blocks?: {
-        [key: string]: unknown;
-    };
-    /**
-     * Slack channel ID to send to.
-     */
-    channel: string;
-    /**
-     * Message text.
-     */
-    text?: string;
-};
-
-/**
- * SlackChatPostMessageResponse is the proxied Slack chat.postMessage response.
- */
-export type SlackChatPostMessageResponse = {
-    channel?: string;
-    error?: string;
-    message?: {
-        [key: string]: unknown;
-    };
-    ok?: boolean;
-    ts?: string;
 };
 
 export type SlackWebhookData = {
