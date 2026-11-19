@@ -14556,8 +14556,10 @@ export type GetProfilingFlamegraphData = {
          */
         query: string;
         /**
-         * Maximum detailed stacks. Defaults to 6000 and is capped at 50000.
-         * Inverted function totals include all matching stacks; this limits callers.
+         * Maximum detailed stacks, at most 50000. Omitted on /flamegraph without
+         * focus, frameFilter or invert, the tree folds every matching stack;
+         * otherwise it defaults to 50000. Inverted function totals include all
+         * matching stacks.
          */
         limit?: number;
         /**
@@ -14636,8 +14638,10 @@ export type GetProfilingFlamegraphDiffData = {
          */
         query: string;
         /**
-         * Maximum detailed stacks. Defaults to 6000 and is capped at 50000.
-         * Inverted function totals include all matching stacks; this limits callers.
+         * Maximum detailed stacks, at most 50000. Omitted on /flamegraph without
+         * focus, frameFilter or invert, the tree folds every matching stack;
+         * otherwise it defaults to 50000. Inverted function totals include all
+         * matching stacks.
          */
         limit?: number;
         /**
