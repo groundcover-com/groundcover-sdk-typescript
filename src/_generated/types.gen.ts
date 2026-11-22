@@ -4989,6 +4989,43 @@ export type InviteeDetails = {
 };
 
 /**
+ * IssueContextResponse extends the migration issue with stored member query pairs.
+ */
+export type IssueContextResponse = {
+    asset_count: number;
+    category: string;
+    /**
+     * Up to 3,000 eligible findings ordered by finding UUID.
+     */
+    context: Array<MigrationIssueContextFinding>;
+    datasource: string;
+    evidence: {
+        [key: string]: string;
+    } | null;
+    field_name: string;
+    finding_type: 'missing_metric' | 'missing_key' | 'missing_value' | 'no_data';
+    integration: string;
+    issue_id: string;
+    label_key: string;
+    label_key_dd: string;
+    label_value: string;
+    label_value_dd: string;
+    message: string;
+    returned_findings: number;
+    severity: string;
+    subject: MigrationIssueSubject;
+    suggestions: Array<MigrationIssueSuggestion>;
+    /**
+     * Count of all eligible findings for the issue.
+     */
+    total_findings: number;
+    /**
+     * True when the finding limit was reached and additional findings exist.
+     */
+    truncated: boolean;
+};
+
+/**
  * IssueStatus represents routing statuses (not raw monitor states).
  */
 export type IssueStatus = string;
@@ -6652,6 +6689,17 @@ export type MigrationIssue = {
     severity: string;
     subject: MigrationIssueSubject;
     suggestions: Array<MigrationIssueSuggestion>;
+};
+
+/**
+ * IssueContextFinding contains the stored query pair for one issue occurrence.
+ */
+export type MigrationIssueContextFinding = {
+    asset_id: string;
+    converted_query: string | null;
+    finding_id: string;
+    original_dd_query: string | null;
+    widget_id: string | null;
 };
 
 /**
@@ -16385,6 +16433,117 @@ export type SearchTracesError = SearchTracesErrors[keyof SearchTracesErrors];
 export type SearchTracesResponses = {
     200: unknown;
 };
+
+export type ListMigrationIssuesData = {
+    body?: never;
+    path: {
+        /**
+         * Migration ID.
+         */
+        migrationId: string;
+    };
+    query?: {
+        /**
+         * Restrict to the given asset type.
+         */
+        asset_type?: 'dashboards' | 'monitors';
+        /**
+         * Internal asset UUID. Intersects asset_type.
+         */
+        asset_id?: string;
+        /**
+         * Filter by finding type.
+         */
+        kind?: 'missing_metric' | 'missing_key' | 'missing_value' | 'no_data';
+        /**
+         * Filter by datasource.
+         */
+        datasource?: 'metrics' | 'logs' | 'traces' | 'events';
+        /**
+         * Page size. Defaults to 100.
+         */
+        limit?: number;
+        /**
+         * Number of matching issues to skip. Defaults to zero.
+         */
+        offset?: number;
+    };
+    url: '/api/v1/migrations/{migrationId}/issues';
+};
+
+export type ListMigrationIssuesErrors = {
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    400: {
+        message?: string;
+    };
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    404: {
+        message?: string;
+    };
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    500: {
+        message?: string;
+    };
+};
+
+export type ListMigrationIssuesError = ListMigrationIssuesErrors[keyof ListMigrationIssuesErrors];
+
+export type ListMigrationIssuesResponses = {
+    200: ListIssuesResponse;
+};
+
+export type ListMigrationIssuesResponse = ListMigrationIssuesResponses[keyof ListMigrationIssuesResponses];
+
+export type GetMigrationIssueContextData = {
+    body?: never;
+    path: {
+        /**
+         * Migration UUID.
+         */
+        migrationId: string;
+        /**
+         * Issue UUID.
+         */
+        issueId: string;
+    };
+    query?: never;
+    url: '/api/v1/migrations/{migrationId}/issues/{issueId}/context';
+};
+
+export type GetMigrationIssueContextErrors = {
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    400: {
+        message?: string;
+    };
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    404: {
+        message?: string;
+    };
+    /**
+     * ErrorResponse defines a common error response structure.
+     */
+    500: {
+        message?: string;
+    };
+};
+
+export type GetMigrationIssueContextError = GetMigrationIssueContextErrors[keyof GetMigrationIssueContextErrors];
+
+export type GetMigrationIssueContextResponses = {
+    200: IssueContextResponse;
+};
+
+export type GetMigrationIssueContextResponse = GetMigrationIssueContextResponses[keyof GetMigrationIssueContextResponses];
 
 export type ExportMonitorsV2Data = {
     body: ExportMonitorsV2Request;
