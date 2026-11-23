@@ -3537,6 +3537,11 @@ export type EvaluateAssetsRequest = {
      */
     asset_types?: Array<string>;
     /**
+     * When set, only evaluate assets with no saved evaluation or an evaluation strictly before this time.
+     * Format: date-time
+     */
+    evaluated_before?: string;
+    /**
      * Caps the number of assets evaluated (after asset_ids filtering): converted assets first, then
      * skipped ones fill what is left. 0 means unlimited.
      */
