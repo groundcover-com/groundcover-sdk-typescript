@@ -9567,6 +9567,8 @@ export type Toleration = {
      * Key is the taint key that the toleration applies to. Empty means match all taint keys.
      * If the key is empty, operator must be Exists; this combination means to match all values and all keys.
      * +optional
+     * +k8s:alpha(since: "1.37")=+k8s:optional
+     * +k8s:alpha(since: "1.37")=+k8s:format=k8s-label-key
      */
     key?: string;
     operator?: TolerationOperator;
