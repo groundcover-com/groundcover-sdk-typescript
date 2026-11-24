@@ -22,6 +22,7 @@ export type AdvancedDataScope = {
     events?: Group;
     logs?: Group;
     metrics?: Group;
+    rum?: Group;
     traces?: Group;
     workloads?: Group;
 };
