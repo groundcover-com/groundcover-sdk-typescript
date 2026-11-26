@@ -3532,6 +3532,79 @@ export type ErrorResponse = {
 };
 
 /**
+ * EvalCatalog lists the Eval fields of a backend, sorted by Eval ID.
+ */
+export type EvalCatalog = {
+    fields: Array<EvalCatalogField>;
+    /**
+     * Supported is always true.
+     */
+    supported: boolean;
+};
+
+/**
+ * EvalCatalogField is one field of one Eval in the backend's Eval catalog.
+ */
+export type EvalCatalogField = {
+    /**
+     * ConfigurationEpoch changes each time the Eval's configuration changes.
+     */
+    configurationEpoch?: number;
+    /**
+     * DefinitionVersion is the version of a built-in Eval definition.
+     */
+    definitionVersion?: string;
+    /**
+     * Enabled is false for an Eval without a configuration or with its configuration off.
+     */
+    enabled: boolean;
+    evalId: string;
+    evalKey: string;
+    evalName: string;
+    /**
+     * Key names the field in filters and results.
+     */
+    key: string;
+    /**
+     * Maximum bounds an integer or float field.
+     */
+    maximum?: number;
+    /**
+     * Minimum bounds an integer or float field.
+     */
+    minimum?: number;
+    /**
+     * Name is the display label.
+     */
+    name: string;
+    /**
+     * Namespace groups built-in Evals.
+     */
+    namespace?: string;
+    /**
+     * Options are the allowed values of an enum field.
+     */
+    options?: Array<string>;
+    /**
+     * built_in EvalBuiltIn
+     * user_created EvalUserCreated
+     */
+    origin: 'built_in' | 'user_created';
+    /**
+     * Revision is the executable revision whose results are current (64 lowercase hex characters).
+     */
+    revision: string;
+    /**
+     * boolean EvalBoolean
+     * text EvalText
+     * integer EvalInteger
+     * float EvalFloat
+     * enum EvalEnum
+     */
+    type: 'boolean' | 'text' | 'integer' | 'float' | 'enum';
+};
+
+/**
  * EvaluateAssetsRequest defines the request body for asset readiness evaluation.
  */
 export type EvaluateAssetsRequest = {
@@ -4328,6 +4401,49 @@ export type GetTagsResponse = {
      * Tags ordered alphabetically (case-insensitive).
      */
     tags?: Array<string>;
+};
+
+/**
+ * goalsErrorBody is the ginInternal.ErrorResponse the goals routes write, with type narrowed to GoalErrorType.
+ */
+export type GoalsErrorBody = {
+    /**
+     * SEMANTIC_INTELLIGENCE_DISABLED on 409 when the switch is off;
+     * EXCEEDED_MAX_ROWS_TO_GROUP_BY on 400 when a read hits a group or result cap.
+     * EXCEEDED_MAX_ROWS_TO_GROUP_BY ErrCodeExceededMaxRowsToGroupBy  ErrCodeExceededMaxRowsToGroupBy is returned when a ClickHouse query  hits the `max_rows_to_group_by` cap under `group_by_overflow_mode='throw'`  (exception 158, mapped from `clickhouse.ErrTooManyRows`). Paired with  HTTP 400 and a hint to narrow filters or reduce group-by cardinality.
+     * SEMANTIC_INTELLIGENCE_DISABLED ErrCodeSemanticIntelligenceDisabled  ErrCodeSemanticIntelligenceDisabled: the backend's Semantic Intelligence  switch is off, or account-level AI features are, so AI goal data is not  served. HTTP 409; clients render the disabled state instead of empty data.
+     * MONITOR_EVAL_FAILED ErrCodeMonitorEvalFailed  ErrCodeMonitorEvalFailed: the monitor's queries/condition failed live  evaluation — details.evalErrors carries [{query, message, raw}] per  failing node. HTTP 400.
+     * MONITOR_VALIDATION_FAILED ErrCodeMonitorValidationFailed  ErrCodeMonitorValidationFailed: the monitor definition failed schema or  model validation — details carries a field→message map. HTTP 400/422.
+     * MONITOR_DUPLICATE_TITLE ErrCodeMonitorDuplicateTitle  ErrCodeMonitorDuplicateTitle: a monitor with this title already exists.  HTTP 409.
+     * CONNECTED_APP_IN_USE ErrCodeConnectedAppInUse  ErrCodeConnectedAppInUse: a connected app or connector cannot be deleted  because notification routes or monitors still reference it. HTTP 409.
+     * VIEW_REVISION_CONFLICT ErrCodeViewRevisionConflict  ErrCodeViewRevisionConflict: a view/dashboard update carried a  currentRevision that has since been superseded, so nothing was written.  The message names the revision that won and who wrote it. Clients branch  on this to offer reload/overwrite/save-as-new. Distinct from HTTP 404 on  the same endpoint, which means the view is gone. HTTP 409.
+     * CONNECTED_APP_ORPHANED_SECRET ErrCodeConnectedAppOrphanedSecret  ErrCodeConnectedAppOrphanedSecret: a connected app's usage could not be  checked because its backing secret no longer exists (deleted out-of-band),  so a provider-disable/delete guard fails closed on the corruption. Distinct  from CONNECTED_APP_IN_USE (also HTTP 409) so clients can tell "still  referenced, expected" apart from "corrupted, needs cleanup". HTTP 409.
+     * INVALID_ARGUMENT ErrCodeInvalidArgument  ErrCodeInvalidArgument: a request parameter is malformed or outside its  allowed values.
+     * INVESTIGATION_EXISTS ErrCodeInvestigationExists  ErrCodeInvestigationExists: an investigation root was opened for an issue  that already has an open root; details.investigationId names the root to  join. HTTP 409.
+     * SYNC_TARGET_TAKEN ErrCodeSyncTargetTaken  ErrCodeSyncTargetTaken: an investigation root was opened from a Slack  thread that another root, open or closed, already follows, so nothing  was opened; details.ownerInvestigationId names that root. HTTP 409.
+     * TRIGGER_AT_CAPACITY ErrCodeTriggerAtCapacity  ErrCodeTriggerAtCapacity: an automation trigger already has its maxConcurrent  open investigation roots, so it may open another only after one closes; the  Retry-After header says when to try again. HTTP 429.
+     * TRIGGER_IN_COOLDOWN ErrCodeTriggerInCooldown  ErrCodeTriggerInCooldown: an automation trigger opened a root of the issue  within its cooldown, so nothing was opened; details.investigationId names  that root. HTTP 409.
+     * RUN_IDENTITY_REQUIRED ErrCodeRunIdentityRequired  ErrCodeRunIdentityRequired: an investigation root needs a user to act for:  its opener must be a user, or an agent acting for one, and a trigger that  opens roots must be saved by a user. HTTP 403.
+     * INVESTIGATIONS_DISABLED ErrCodeInvestigationsDisabled  ErrCodeInvestigationsDisabled: the organization has Investigations turned  off, so its investigation and trigger APIs are refused. HTTP 403.
+     * INVESTIGATION_CLOSED ErrCodeInvestigationClosed  ErrCodeInvestigationClosed: a write targets an investigation node that is  closed, or has a closed ancestor. HTTP 409.
+     * FINDING_OUT_OF_SCOPE ErrCodeFindingOutOfScope  ErrCodeFindingOutOfScope: a finding's query doesn't filter on the scope of  the node it is recorded on; details.scope names the entries to filter on.  HTTP 400.
+     * FINDING_RETRACTED ErrCodeFindingRetracted  ErrCodeFindingRetracted: a finding is already retracted, or a citation  names a retracted finding. HTTP 409.
+     * NOT_AUTHOR ErrCodeNotAuthor  ErrCodeNotAuthor: only a finding's author may retract it, since retraction  applies without moderation. HTTP 403.
+     * INVESTIGATION_GRAMMAR ErrCodeInvestigationGrammar  ErrCodeInvestigationGrammar: a create_child proposal asks for a kind the  node can't have as a child. HTTP 400.
+     * EVIDENCE_REQUIRED ErrCodeEvidenceRequired  ErrCodeEvidenceRequired: a resolve or refute proposal lacks the live  evidence its kind needs. HTTP 400.
+     * REFUTE_REQUIRES_HYPOTHESIS ErrCodeRefuteRequiresHypothesis  ErrCodeRefuteRequiresHypothesis: a refute proposal targets a question;  only hypotheses are refuted. HTTP 400.
+     * HYPOTHESIS_REQUIRED ErrCodeHypothesisRequired  ErrCodeHypothesisRequired: a resolve proposal on a root question has no  settled (supported or refuted) hypothesis child; a person deciding  directly is exempt. HTTP 409.
+     */
+    code?: 'EXCEEDED_MAX_ROWS_TO_GROUP_BY' | 'SEMANTIC_INTELLIGENCE_DISABLED' | 'MONITOR_EVAL_FAILED' | 'MONITOR_VALIDATION_FAILED' | 'MONITOR_DUPLICATE_TITLE' | 'CONNECTED_APP_IN_USE' | 'VIEW_REVISION_CONFLICT' | 'CONNECTED_APP_ORPHANED_SECRET' | 'INVALID_ARGUMENT' | 'INVESTIGATION_EXISTS' | 'SYNC_TARGET_TAKEN' | 'TRIGGER_AT_CAPACITY' | 'TRIGGER_IN_COOLDOWN' | 'RUN_IDENTITY_REQUIRED' | 'INVESTIGATIONS_DISABLED' | 'INVESTIGATION_CLOSED' | 'FINDING_OUT_OF_SCOPE' | 'FINDING_RETRACTED' | 'NOT_AUTHOR' | 'INVESTIGATION_GRAMMAR' | 'EVIDENCE_REQUIRED' | 'REFUTE_REQUIRES_HYPOTHESIS' | 'HYPOTHESIS_REQUIRED';
+    /**
+     * Human-readable error message.
+     */
+    message?: string;
+    /**
+     * Trace ID of the request.
+     */
+    trace_id?: string;
+    type?: 'unavailable';
 };
 
 export type Group = {
