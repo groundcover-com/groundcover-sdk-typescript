@@ -4404,6 +4404,160 @@ export type GetTagsResponse = {
 };
 
 /**
+ * GoalAgent is one participant attributed to the goal.
+ */
+export type GoalAgent = {
+    id: string;
+    name: string;
+    version: string;
+};
+
+/**
+ * GoalDrilldown holds the filters the UI runs when a row's subject or blocker
+ * is opened.
+ */
+export type GoalDrilldown = {
+    /**
+     * Blocker is the clause of this row's unresolved blocker. To open it, send the same sources and (<request query>) AND <clause>, or the clause alone when the request query is empty.
+     */
+    blocker?: string;
+    /**
+     * Subject is the clause of this row's subject. To open it, send the same sources and (<request query>) AND <clause>, or the clause alone when the request query is empty.
+     */
+    subject?: string;
+};
+
+/**
+ * GoalEvalResult is the current result of one requested Eval field on a goal
+ * row, judged against the catalog the request read.
+ */
+export type GoalEvalResult = {
+    /**
+     * State is the state of the field's Eval result.
+     * pending EvalResultPending
+     * complete EvalResultComplete
+     * failed EvalResultFailed
+     * exhausted EvalResultExhausted
+     * skipped EvalResultSkipped
+     * disabled EvalResultDisabled
+     * outdated EvalResultOutdated
+     * unavailable EvalResultUnavailable
+     */
+    state: 'pending' | 'complete' | 'failed' | 'exhausted' | 'skipped' | 'disabled' | 'outdated' | 'unavailable';
+    value?: GoalEvalValue;
+};
+
+/**
+ * GoalEvalValue is one Eval field value; exactly the member that matches the
+ * field type is set. A field without a value of its type is left out.
+ */
+export type GoalEvalValue = {
+    boolean?: boolean;
+    /**
+     * Number is the value of an integer or float field.
+     */
+    number?: number;
+    /**
+     * Text is the value of a text or enum field.
+     */
+    text?: string;
+};
+
+/**
+ * GoalListPage is one page and the cursor for the page after it.
+ */
+export type GoalListPage = {
+    /**
+     * Cursor is absent on the last page.
+     */
+    cursor?: string;
+    goals: Array<GoalRow>;
+};
+
+/**
+ * GoalRow is one published goal on the list.
+ */
+export type GoalRow = {
+    agents: Array<GoalAgent>;
+    /**
+     * Blocker is what stopped the goal, when one is known.
+     */
+    blocker: string | null;
+    cluster: string;
+    /**
+     * ConversationKey identifies the conversation the goal was found in.
+     */
+    conversationKey: string;
+    drilldown: GoalDrilldown;
+    endTimestamp: string;
+    env: string;
+    /**
+     * Evals holds the current result of each requested evalFields reference, keyed by that reference.
+     */
+    evals?: {
+        [key: string]: GoalEvalResult;
+    };
+    /**
+     * GenAiCostInput is the input cost of the goal's spans in USD.
+     */
+    genAiCostInput: number | null;
+    /**
+     * GenAiCostOutput is the output cost of the goal's spans in USD.
+     */
+    genAiCostOutput: number | null;
+    /**
+     * GenAiCostTotal is the total cost of the goal's spans in USD.
+     */
+    genAiCostTotal: number | null;
+    /**
+     * Token and cost fields are null when the spans carry no usage or price.
+     */
+    genAiUsageInputTokens: number | null;
+    genAiUsageOutputTokens: number | null;
+    goalId: string;
+    /**
+     * pending GoalStatePending
+     * complete GoalStateComplete
+     * unknown GoalStateUnknown  GoalStateUnknown has no current outcome result.
+     */
+    goalState: 'pending' | 'complete' | 'unknown';
+    /**
+     * GoalVersion identifies this published version of the goal.
+     */
+    goalVersion: string;
+    namespace: string;
+    /**
+     * Outcome is set once the goal has an outcome.
+     */
+    outcome: string | null;
+    /**
+     * PendingReason says why a goal without an outcome is still open.
+     */
+    pendingReason: string | null;
+    /**
+     * SentimentEnd is the user's sentiment at the end of the goal.
+     */
+    sentimentEnd: string | null;
+    startTimestamp: string;
+    /**
+     * SubjectID is the current subject of the goal; the last step of subjectPath.
+     */
+    subjectId: string;
+    /**
+     * SubjectPath is the current root-to-subject path, never empty. A goal without
+     * a current subject has the path of the subject other.
+     */
+    subjectPath: Array<SubjectStep>;
+    /**
+     * Timestamp is the time of the goal's first publication; it does not change
+     * between versions, and the list sorts on it.
+     */
+    timestamp: string;
+    title: string;
+    workloads: Array<string>;
+};
+
+/**
  * goalsErrorBody is the ginInternal.ErrorResponse the goals routes write, with type narrowed to GoalErrorType.
  */
 export type GoalsErrorBody = {
@@ -4443,7 +4597,52 @@ export type GoalsErrorBody = {
      * Trace ID of the request.
      */
     trace_id?: string;
-    type?: 'unavailable';
+    type?: 'unavailable' | 'cursor_expired' | 'cursor_invalid';
+};
+
+/**
+ * goalsSearchRequest is one page of the Goals tab.
+ */
+export type GoalsSearchRequest = {
+    /**
+     * Cursor is the previous page's cursor. It expires after 15 minutes and is
+     * valid only with the same sources, query, time range, sort, evalFields, data scope and
+     * Eval catalog; any Eval edit makes it cursor_invalid.
+     */
+    cursor?: string;
+    /**
+     * End time of the request range
+     */
+    end: string;
+    /**
+     * EvalFields are Eval field references, <evalKey>.<fieldKey> from the catalog's evalKey and key,
+     * as in the query; at most 100.
+     */
+    evalFields?: Array<string>;
+    /**
+     * Limit is the page size: 50 when 0, at most 200.
+     */
+    limit?: number;
+    /**
+     * Query is a gcQL filter; pipes are not supported yet. Free text searches the goal title as the other search routes do: each word matches a whole word of the title and a quoted phrase must also appear in it, ignoring case; title is also a filter field, where title:"..." is an exact match and title:*word* a case-insensitive LIKE. Each other term names a known field (a goal field, a short judgment field such as outcome, or <evalKey>.<fieldKey>).
+     * A value of an enum or boolean Eval field must be one of its options.
+     * The goal time field is timestamp; _time is not accepted.
+     * The request window is [start, end): end is exclusive.
+     */
+    query?: string;
+    /**
+     * Sort is timestamp_desc when empty; no other order exists.
+     * timestamp_desc goalSortTimestampDesc
+     */
+    sort?: 'timestamp_desc';
+    /**
+     * Page-level conditions, ANDed with query; same fields and rules as query.
+     */
+    sources?: Array<Condition>;
+    /**
+     * Start time of the request range
+     */
+    start: string;
 };
 
 export type Group = {
@@ -9223,6 +9422,14 @@ export type StringOrStringSlice = Array<string>;
 export type Subject = {
     name_dd?: string;
     name_gc?: string;
+};
+
+/**
+ * SubjectStep is one node on the current root-to-assigned path.
+ */
+export type SubjectStep = {
+    id: string;
+    label: string;
 };
 
 /**
