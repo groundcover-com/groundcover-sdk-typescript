@@ -3523,7 +3523,7 @@ export type EnvType = string;
  * (message + machine-readable code + trace_id, plus optional metadata).
  */
 export type ErrorResponse = {
-    code?: 'EXCEEDED_MAX_ROWS_TO_GROUP_BY' | 'MONITOR_EVAL_FAILED' | 'MONITOR_VALIDATION_FAILED' | 'MONITOR_DUPLICATE_TITLE' | 'CONNECTED_APP_IN_USE' | 'VIEW_REVISION_CONFLICT' | 'CONNECTED_APP_ORPHANED_SECRET' | 'INVALID_ARGUMENT' | 'INVESTIGATION_EXISTS' | 'SYNC_TARGET_TAKEN' | 'TRIGGER_AT_CAPACITY' | 'TRIGGER_IN_COOLDOWN' | 'RUN_IDENTITY_REQUIRED' | 'INVESTIGATIONS_DISABLED' | 'INVESTIGATION_CLOSED' | 'FINDING_OUT_OF_SCOPE' | 'FINDING_RETRACTED' | 'NOT_AUTHOR' | 'INVESTIGATION_GRAMMAR' | 'EVIDENCE_REQUIRED' | 'REFUTE_REQUIRES_HYPOTHESIS' | 'HYPOTHESIS_REQUIRED';
+    code?: 'EXCEEDED_MAX_ROWS_TO_GROUP_BY' | 'SEMANTIC_INTELLIGENCE_DISABLED' | 'MONITOR_EVAL_FAILED' | 'MONITOR_VALIDATION_FAILED' | 'MONITOR_DUPLICATE_TITLE' | 'CONNECTED_APP_IN_USE' | 'VIEW_REVISION_CONFLICT' | 'CONNECTED_APP_ORPHANED_SECRET' | 'INVALID_ARGUMENT' | 'INVESTIGATION_EXISTS' | 'SYNC_TARGET_TAKEN' | 'TRIGGER_AT_CAPACITY' | 'TRIGGER_IN_COOLDOWN' | 'RUN_IDENTITY_REQUIRED' | 'INVESTIGATIONS_DISABLED' | 'INVESTIGATION_CLOSED' | 'FINDING_OUT_OF_SCOPE' | 'FINDING_RETRACTED' | 'NOT_AUTHOR' | 'INVESTIGATION_GRAMMAR' | 'EVIDENCE_REQUIRED' | 'REFUTE_REQUIRES_HYPOTHESIS' | 'HYPOTHESIS_REQUIRED';
     details?: unknown;
     docs_url?: string;
     message?: string;
@@ -3798,6 +3798,85 @@ export type ExecutionPolicy = {
         count?: number;
         interval?: string;
     };
+};
+
+/**
+ * ExplainDBError is the error the database returned instead of a plan.
+ */
+export type ExplainDbError = {
+    /**
+     * The engine's own code: for PostgreSQL the SQLSTATE, such as 42501 for a missing privilege.
+     */
+    code: string;
+    detail?: string;
+    hint?: string;
+    message: string;
+};
+
+/**
+ * ExplainRequest names a database server and the query to explain on it.
+ */
+export type ExplainRequest = {
+    /**
+     * The cluster the query came from. Of several integrations on the server, one that runs there is preferred.
+     */
+    cluster: string;
+    /**
+     * The database to explain in. Defaults to the span's, when the source is one, then the integration's.
+     */
+    db_name?: string;
+    /**
+     * The env the query came from. It picks between integrations the cluster does not tell apart.
+     */
+    env?: string;
+    /**
+     * The server's host, as its PostgreSQL integration names it.
+     */
+    server_address: string;
+    /**
+     * Defaults to 5432.
+     */
+    server_port?: number;
+    source: ExplainSource;
+};
+
+/**
+ * ExplainResponse is an explain's state. Result is set once the status is succeeded.
+ */
+export type ExplainResponse = {
+    /**
+     * Why the command failed, when the agent could not ask the database.
+     */
+    error?: string;
+    id: string;
+    result?: ExplainResult;
+    status: 'pending' | 'running' | 'succeeded' | 'failed' | 'unsupported' | 'cancelled' | 'expired' | 'timed_out';
+};
+
+/**
+ * ExplainResult is the database's answer as it gave it: a plan, or the error it returned instead. Every engine's
+ * explain answers with it.
+ */
+export type ExplainResult = {
+    db_error?: ExplainDbError;
+    /**
+     * The engine's own JSON plan as the database wrote it, such as PostgreSQL's EXPLAIN (FORMAT JSON) output. Its
+     * shape is the engine's: PostgreSQL's is a list, MySQL's an object.
+     */
+    plan?: unknown;
+    /**
+     * PostgreSQL only. custom: planned for the query's params. generic: it had none, so the plan holds for any value
+     * (PostgreSQL 16+).
+     */
+    plan_kind?: 'custom' | 'generic';
+};
+
+/**
+ * ExplainSource is where the query comes from: exactly one of a span or a query.
+ */
+export type ExplainSource = {
+    query?: QuerySource;
+    span?: SpanSource;
 };
 
 /**
@@ -7794,6 +7873,21 @@ export type QueryRequest = {
 };
 
 /**
+ * QuerySource is a query the caller writes; it need not have run.
+ */
+export type QuerySource = {
+    /**
+     * Text values bound to $1, $2…, in that order; null is NULL. Without params, a query with placeholders gets
+     * a generic plan.
+     */
+    params?: Array<string>;
+    /**
+     * One SQL statement, without EXPLAIN.
+     */
+    text: string;
+};
+
+/**
  * QueryType distinguishes between range and instant queries.
  */
 export type QueryType = string;
@@ -8906,6 +9000,15 @@ export type SpanRecord = {
     workload?: string;
 };
 
+export type SpanSource = {
+    span_id: string;
+    /**
+     * Timestamp is the span's start; it keeps the lookup to the span's own partition.
+     */
+    timestamp: string;
+    trace_id: string;
+};
+
 /**
  * SqlPipeline defines a pipeline for search queries.
  *
@@ -9251,6 +9354,11 @@ export type TenantAiSettingsResponse = {
     backendName?: string;
     customerAIFeaturesOptOut?: boolean;
     effectiveAIFeaturesEnabled?: boolean;
+    /**
+     * The stored Semantic Intelligence switch. Whether Goals are served also needs the backend's
+     * semantic-intelligence feature; backend/list reports effectiveSemanticIntelligenceEnabled.
+     */
+    semanticIntelligenceEnabled?: boolean;
 };
 
 export type TenantConnectorSettingsResponse = {
@@ -10471,8 +10579,18 @@ export type UpdateSilenceRequest = {
     startsAt?: string;
 };
 
+/**
+ * UpdateTenantAISettingsRequest changes the backend's AI settings. At least one field must be set; an omitted field keeps the stored value.
+ */
 export type UpdateTenantAiSettingsRequest = {
-    customerAIFeaturesOptOut: boolean;
+    /**
+     * Opts the backend out of AI features; omitted keeps the stored value.
+     */
+    customerAIFeaturesOptOut?: boolean | null;
+    /**
+     * Turns background analysis of AI conversations on or off; omitted keeps the stored value.
+     */
+    semanticIntelligenceEnabled?: boolean | null;
 };
 
 export type UpdateTenantConnectorSettingsRequest = {
