@@ -1315,6 +1315,24 @@ export type BatchUpdateMonitorTagsV2Response = {
     updatedCount?: number;
 };
 
+/**
+ * BlockerCount is one named blocker of unresolved goals. None and unknown
+ * are reported beside this list, not as percentages.
+ */
+export type BlockerCount = {
+    blocker: string;
+    /**
+     * Drilldown is the clause of this bucket. To open it, send the same sources and
+     * (<request query>) AND <clause>, or the clause alone when the request query
+     * is empty; that selects exactly these goals.
+     */
+    drilldown?: string;
+    /**
+     * UnresolvedGoals counts the unresolved goals this blocker stopped.
+     */
+    unresolvedGoals: number;
+};
+
 export type BucketDurationSeconds = number;
 
 /**
@@ -4558,6 +4576,75 @@ export type GoalRow = {
 };
 
 /**
+ * GoalSuggestion is one value the caller may insert. Subject suggestions
+ * carry the current path so two children with the same label stay distinct,
+ * and so a parent filters its subtree. Count covers the full filtered window.
+ */
+export type GoalSuggestion = {
+    /**
+     * Count is the number of matching goals with this value.
+     */
+    count: number;
+    /**
+     * SubjectID and SubjectPath, ordered root to subject, are set on subject suggestions only.
+     */
+    subjectId?: string;
+    subjectPath?: Array<SubjectStep>;
+    value: string;
+};
+
+/**
+ * GoalSuggestions has the shape of the search values response.
+ */
+export type GoalSuggestions = {
+    /**
+     * IsLimitReached is true when more values exist than Limit.
+     */
+    isLimitReached: boolean;
+    results: Array<GoalSuggestion>;
+};
+
+/**
+ * goalsAutocompleteRequest suggests values of Field that occur on visible
+ * goals matching Sources and Query. Prefix is the text still being typed; a
+ * condition of Query on Field with that value is the draft and is ignored,
+ * whatever its operator. Sources are never the draft.
+ */
+export type GoalsAutocompleteRequest = {
+    /**
+     * End time of the request range
+     */
+    end: string;
+    /**
+     * Field is a string or string-array goal column other than title, or an Eval text, enum or boolean field.
+     */
+    field: string;
+    /**
+     * Limit is the number of suggestions: 20 when 0, at most 50.
+     */
+    limit?: number;
+    /**
+     * Prefix is the text still being typed; values start with it.
+     */
+    prefix?: string;
+    /**
+     * Query is the gcQL filter being edited; pipes are not supported yet. Free text searches the goal title as the other search routes do: each word matches a whole word of the title and a quoted phrase must also appear in it, ignoring case; title is also a filter field, where title:"..." is an exact match and title:*word* a case-insensitive LIKE. Each other term names a known field (a goal field, a short judgment field such as outcome, or <evalKey>.<fieldKey>).
+     * A value of an enum or boolean Eval field must be one of its options.
+     * The goal time field is timestamp; _time is not accepted.
+     * The request window is [start, end): end is exclusive.
+     */
+    query?: string;
+    /**
+     * Page-level conditions, ANDed with query; same fields and rules as query.
+     */
+    sources?: Array<Condition>;
+    /**
+     * Start time of the request range
+     */
+    start: string;
+};
+
+/**
  * goalsErrorBody is the ginInternal.ErrorResponse the goals routes write, with type narrowed to GoalErrorType.
  */
 export type GoalsErrorBody = {
@@ -4802,6 +4889,130 @@ export type IngestionMeasurementsSearchTimeSeriesRequest = {
      */
     start: string;
     valueField?: string;
+};
+
+/**
+ * InsightsCharts is blockers and end sentiment over time. Sentiment has one
+ * point for each bucket of the window, in time order, also for a bucket
+ * without goals.
+ */
+export type InsightsCharts = {
+    blockers: Array<BlockerCount>;
+    sentiment: Array<SentimentPoint>;
+    unresolvedNone: number;
+    unresolvedUnknown: number;
+};
+
+/**
+ * insightsChartsRequest is the remaining Insights panels for one window.
+ *
+ * BucketDuration is the sentiment interval, parsed as the search-time-series
+ * routes parse theirs; empty uses the same bucket size as the existing
+ * time-series charts. TimeZone is an IANA time zone name and defaults to the
+ * request's time zone, then UTC.
+ */
+export type InsightsChartsRequest = {
+    /**
+     * BucketDuration is the sentiment interval as a whole number of seconds in a
+     * duration string with the units s, m and h, such as "10s", "5m", "1h" or
+     * "24h" (there is no d unit: "1d" answers 400); empty picks one from the
+     * window. A bucket longer than the window gives one bucket.
+     */
+    bucketDuration?: string;
+    /**
+     * End time of the request range
+     */
+    end: string;
+    /**
+     * Query is the goal list's gcQL filter; pipes are not supported yet. Free text searches the goal title as the other search routes do: each word matches a whole word of the title and a quoted phrase must also appear in it, ignoring case; title is also a filter field, where title:"..." is an exact match and title:*word* a case-insensitive LIKE. Each other term names a known field (a goal field, a short judgment field such as outcome, or <evalKey>.<fieldKey>).
+     * A value of an enum or boolean Eval field must be one of its options.
+     * The goal time field is timestamp; _time is not accepted.
+     * The request window is [start, end): end is exclusive.
+     */
+    query?: string;
+    /**
+     * Page-level conditions, ANDed with query; same fields and rules as query.
+     */
+    sources?: Array<Condition>;
+    /**
+     * Start time of the request range
+     */
+    start: string;
+    /**
+     * TimeZone is an IANA name for the sentiment buckets; empty uses the request time zone, then UTC.
+     */
+    timeZone?: string;
+};
+
+/**
+ * InsightsRatio is a KPI numerator and its evaluable count, always present.
+ *
+ * Denominator 0 means nothing could be evaluated, so there is no rate.
+ */
+export type InsightsRatio = {
+    denominator: number;
+    numerator: number;
+};
+
+/**
+ * InsightsSummary is the overview payload. A ratio with denominator 0 has no
+ * rate. Totals, PendingGoals and UnclassifiedGoals cover the whole filtered
+ * population, also under parentSubjectId. UnclassifiedGoals counts the goals of
+ * the root bucket of the subject other (subject_id:"other"); under a parent no
+ * such bucket is returned.
+ */
+export type InsightsSummary = {
+    frustration: InsightsRatio;
+    latestReportedAt: string | null;
+    pendingGoals: number;
+    satisfaction: InsightsRatio;
+    subjects: Array<SubjectBucket>;
+    success: InsightsRatio;
+    totals: InsightsTotals;
+    unclassifiedGoals: number;
+};
+
+/**
+ * insightsSummaryRequest is one Insights overview: the same window and
+ * filters as the goal list, plus an optional parent to drill into.
+ */
+export type InsightsSummaryRequest = {
+    /**
+     * End time of the request range
+     */
+    end: string;
+    /**
+     * Limit keeps the largest subject buckets after shares are computed
+     * against the full population. Zero returns every bucket.
+     */
+    limit?: number;
+    /**
+     * ParentSubjectID drills into one subject; empty is the root.
+     */
+    parentSubjectId?: string;
+    /**
+     * Query is the goal list's gcQL filter; pipes are not supported yet. Free text searches the goal title as the other search routes do: each word matches a whole word of the title and a quoted phrase must also appear in it, ignoring case; title is also a filter field, where title:"..." is an exact match and title:*word* a case-insensitive LIKE. Each other term names a known field (a goal field, a short judgment field such as outcome, or <evalKey>.<fieldKey>).
+     * A value of an enum or boolean Eval field must be one of its options.
+     * The goal time field is timestamp; _time is not accepted.
+     * The request window is [start, end): end is exclusive.
+     */
+    query?: string;
+    /**
+     * Page-level conditions, ANDed with query; same fields and rules as query.
+     */
+    sources?: Array<Condition>;
+    /**
+     * Start time of the request range
+     */
+    start: string;
+};
+
+/**
+ * InsightsTotals are the published goals the filters selected.
+ */
+export type InsightsTotals = {
+    conversations: number;
+    goals: number;
 };
 
 export type InstallAllAssetsResponse = {
@@ -8913,6 +9124,23 @@ export type Selector = {
     windowSpec?: WindowSpec;
 };
 
+/**
+ * SentimentPoint is one chart bucket. A ratio has denominator 0 when the bucket
+ * has nothing to evaluate for it; unknown is counted outside that denominator.
+ * A bucket without goals has every count 0 and every ratio with denominator 0.
+ */
+export type SentimentPoint = {
+    bucket: string;
+    frustration: InsightsRatio;
+    mixed: InsightsRatio;
+    negative: InsightsRatio;
+    neutral: InsightsRatio;
+    positive: InsightsRatio;
+    satisfaction: InsightsRatio;
+    success: InsightsRatio;
+    unknown: number;
+};
+
 export type ServiceAccountCreatePayload = {
     /**
      * The UUID of the created service account.
@@ -9422,6 +9650,50 @@ export type StringOrStringSlice = Array<string>;
 export type Subject = {
     name_dd?: string;
     name_gc?: string;
+};
+
+/**
+ * SubjectBucket is one slice of the subject chart, bucketed by the goal's
+ * subject_id facet. At the root a bucket is a top-level subtree, and the
+ * bucket of the subject other (Direct), under its catalog label, also holds
+ * goals with no current subject. Under a parent, buckets are child subtrees plus the parent's
+ * direct assignments (Direct). Costs sum recorded values in USD, including
+ * pending goals; their known counts expose partial coverage. NonSuccessGoals
+ * and nonSuccessGenAiCostTotal count goals whose outcome is partial_success,
+ * failure, abandoned or blocked; they are not the charts' unresolved blocker state.
+ */
+export type SubjectBucket = {
+    direct?: boolean;
+    /**
+     * Drilldown is the clause of this bucket. To open it, send the same sources and
+     * (<request query>) AND <clause>, or the clause alone when the request query
+     * is empty; that selects exactly this bucket's goals. A parent's Direct bucket
+     * has none: gcQL cannot select a subject without its children.
+     */
+    drilldown?: string;
+    frustration: InsightsRatio;
+    /**
+     * GenAiCostTotal is the bucket's total cost in USD.
+     */
+    genAiCostTotal: number | null;
+    /**
+     * GenAiCostTotalKnown counts the goals with a recorded cost.
+     */
+    genAiCostTotalKnown: number;
+    goals: number;
+    label: string;
+    /**
+     * NonSuccessGenAiCostTotal is the total cost of the non-success goals in USD.
+     */
+    nonSuccessGenAiCostTotal: number | null;
+    /**
+     * NonSuccessGenAiCostTotalKnown counts the non-success goals with a recorded cost.
+     */
+    nonSuccessGenAiCostTotalKnown: number;
+    nonSuccessGoals: number;
+    share: number;
+    subjectId: string;
+    success: InsightsRatio;
 };
 
 /**
